@@ -1,0 +1,36 @@
+.queue-placeholder {
+  margin-top: 1rem;
+}
+
+.queue-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.queue-table thead {
+  background: #667eea;
+  color: #fff;
+}
+
+.queue-table th {
+  padding: 0.85rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.queue-table td {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 0.9rem;
+}
+
+.empty-row {
+  text-align: center;
+  color: #aaa;
+  padding: 2rem 1rem;
+}
