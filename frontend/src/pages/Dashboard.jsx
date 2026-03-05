@@ -1,22 +1,15 @@
-import { Link } from 'react-router-dom';
+import Navbar from '../components/Navbar';
 import './Dashboard.css';
 
 function Dashboard() {
   return (
-    <div className="page-container">
-      <nav className="page-nav">
-        <span className="nav-brand">Smart Clinic</span>
-        <div className="nav-links">
-          <Link to="/dashboard" className="nav-link active">Dashboard</Link>
-          <Link to="/queue" className="nav-link">Queue</Link>
-          <Link to="/login" className="nav-link">Logout</Link>
-        </div>
-      </nav>
+    <div>
+      <Navbar activePage="dashboard" />
 
-      <main className="page-content">
+      <main style={{ maxWidth: '900px', margin: '2rem auto', padding: '0 1rem' }}>
         <h1>Dashboard</h1>
-        <p className="placeholder-text">
-          This is the Dashboard page. Clinic overview, stats, and quick actions will appear here.
+        <p style={{ color: '#777', marginBottom: '1rem' }}>
+          Clinic overview and quick stats will show up here.
         </p>
 
         {/* TODO: fetch real stats from the backend once the API is ready */}

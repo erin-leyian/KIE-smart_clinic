@@ -1,36 +1,32 @@
-.queue-placeholder {
-  margin-top: 1rem;
-}
-
 .queue-table {
   width: 100%;
   border-collapse: collapse;
-  background: #fff;
-  border-radius: 10px;
+  background: white;
+  margin-top: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .queue-table thead {
-  background: #667eea;
-  color: #fff;
+  background: #4a6cf7;
+  color: white;
 }
 
 .queue-table th {
-  padding: 0.85rem 1rem;
+  padding: 0.75rem 1rem;
   text-align: left;
-  font-weight: 600;
   font-size: 0.9rem;
 }
 
 .queue-table td {
-  padding: 0.85rem 1rem;
-  border-bottom: 1px solid #f0f0f0;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #eee;
   font-size: 0.9rem;
 }
 
 .empty-row {
   text-align: center;
-  color: #aaa;
+  color: #999;
   padding: 2rem 1rem;
 }
