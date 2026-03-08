@@ -1,0 +1,38 @@
+.patients-container {
+  max-width: 900px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+.page-description {
+  color: #777;
+  margin-bottom: 1rem;
+}
+
+.patients-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border: 1px solid #ddd;
+}
+
+.patients-table thead {
+  background: #4a6cf7;
+  color: white;
+}
+
+.patients-table th,
+.patients-table td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+}
+
+.patients-table td {
+  border-bottom: 1px solid #eee;
+}
+
+.empty-row {
+  text-align: center;
+  color: #999;
+  padding: 2rem;
+}
