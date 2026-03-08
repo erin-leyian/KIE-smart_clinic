@@ -119,3 +119,20 @@ CREATE TABLE QueueEntry (
     INDEX idx_queue_today (ClinicID, DATE(ArrivalTime), Status)
 );
 
+-- 7. Notification (SMS / push history)
+CREATE TABLE Notification (
+    NotificationID    INT AUTO_INCREMENT PRIMARY KEY,
+    PatientID         INT NOT NULL,
+    QueueEntryID      INT NULL,
+    AppointmentID     INT NULL,
+    Type              ENUM('Reminder', 'QueueUpdate', 'Cancellation', 'Ready', 'Other') NOT NULL,
+    Message           TEXT NOT NULL,
+    SentAt            TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    DeliveryStatus    ENUM('Pending', 'Sent', 'Delivered', 'Failed') DEFAULT 'Pending',
+    CreatedAt         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UpdatedAt         TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (PatientID)     REFERENCES Patient(PatientID)     ON DELETE CASCADE,
+    FOREIGN KEY (QueueEntryID)  REFERENCES QueueEntry(QueueEntryID)  ON DELETE SET NULL,
+    FOREIGN KEY (AppointmentID) REFERENCES Appointment(AppointmentID) ON DELETE SET NULL
+);
