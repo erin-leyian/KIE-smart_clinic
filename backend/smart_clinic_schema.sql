@@ -119,6 +119,27 @@ CREATE TABLE QueueEntry (
     INDEX idx_queue_today (ClinicID, DATE(ArrivalTime), Status)
 );
 
+DELIMITER //
+
+CREATE TRIGGER trg_queue_number_before_insert
+BEFORE INSERT ON QueueEntry
+FOR EACH ROW
+BEGIN
+    DECLARE last_num INT;
+    
+    -- Count how many queue entries already exist for this clinic on the same day
+    SELECT COALESCE(MAX(QueueNumber), 0)
+    INTO last_num
+    FROM QueueEntry
+    WHERE ClinicID = NEW.ClinicID
+      AND DATE(ArrivalTime) = DATE(NEW.ArrivalTime);
+    
+    -- Set the next number (1 if first of the day)
+    SET NEW.QueueNumber = last_num + 1;
+END//
+
+DELIMITER ;
+
 -- 7. Notification (SMS / push history)
 CREATE TABLE Notification (
     NotificationID    INT AUTO_INCREMENT PRIMARY KEY,
