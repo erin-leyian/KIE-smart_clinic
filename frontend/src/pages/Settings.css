@@ -1,0 +1,21 @@
+.settings-container {
+  max-width: 900px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+.page-description {
+  color: #777;
+  margin-bottom: 1rem;
+}
+
+.settings-card {
+  background: white;
+  border: 1px solid #ddd;
+  padding: 1.5rem;
+  border-radius: 6px;
+}
+
+.settings-card p {
+  margin-bottom: 0.7rem;
+}
