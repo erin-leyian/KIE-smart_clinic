@@ -8,6 +8,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "africastalking": "^0.7.9",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.0.0",
@@ -16,8 +17,8 @@
     "mysql2": "^3.0.0"
   },
   "devDependencies": {
-    "nodemon": "^3.0.0",
     "jest": "^29.0.0",
+    "nodemon": "^3.0.0",
     "supertest": "^6.0.0"
   }
 }
