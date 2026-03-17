@@ -1,35 +1,22 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
-import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import Queue from './pages/Queue';
-import NotFound from './pages/NotFound';
-import Patients from './pages/Patients';
-import Appointments from './pages/Appointments';
-import Settings from './pages/Settings';
+import React from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Home from "./pages/Home/Home";
+import Auth from "./pages/Auth";
+import DashboardHome from "./pages/Dashboard/DashboardHome";
+import PatientRecords from "./pages/Dashboard/PatientRecords";
+import OnlineConsult from "./pages/Dashboard/OnlineConsult";
 
 function App() {
   return (
-    <Routes>
-      <Route path="/" element={<Navigate to="/login" replace />} />
-
-      {/* Authentication */}
-      <Route path="/login" element={<Login />} />
-
-      {/* Main pages */}
-      <Route path="/dashboard" element={<Dashboard />} />
-      <Route path="/queue" element={<Queue />} />
-      <Route path="/patients" element={<Patients />} />
-      <Route path="/appointments" element={<Appointments />} />
-      <Route path="/settings" element={<Settings />} />
-
-      {/* Future pages to be implemented later */}
-      {/* <Route path="/appointments" element={<Appointments />} /> */}
-      {/* <Route path="/patients" element={<Patients />} /> */}
-      {/* <Route path="/settings" element={<Settings />} /> */}
-
-      {/* 404 fallback */}
-      <Route path="*" element={<NotFound />} />
-    </Routes>
+    <Router>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/auth" element={<Auth />} />
+        <Route path="/dashboard" element={<DashboardHome />} />
+        <Route path="/dashboard/records" element={<PatientRecords />} />
+        <Route path="/dashboard/consult" element={<OnlineConsult />} />
+      </Routes>
+    </Router>
   );
 }
 
