@@ -1,0 +1,22 @@
+.sidebar{
+width:220px;
+background:#f4f4f4;
+height:100vh;
+padding:20px;
+}
+
+.sidebar ul{
+list-style:none;
+padding:0;
+}
+
+.sidebar li{
+padding:14px;
+margin:10px 0;
+cursor:pointer;
+}
+
+.sidebar a{
+text-decoration:none;
+color:black;
+}

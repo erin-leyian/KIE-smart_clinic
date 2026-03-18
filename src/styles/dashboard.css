@@ -1,0 +1,119 @@
+
+.dashboard{
+display:flex;
+background:#f7f9fb;
+min-height:100vh;
+}
+
+.main{
+flex:1;
+padding:30px;
+}
+
+
+
+.banner{
+background:#8da3a9;
+color:white;
+padding:40px;
+border-radius:12px;
+margin-bottom:30px;
+}
+
+
+.doctor-grid{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+gap:20px;
+}
+
+
+.doctor-card{
+background:white;
+padding:20px;
+border-radius:12px;
+box-shadow:0 3px 10px rgba(0,0,0,0.08);
+text-align:center;
+}
+
+.doctor-img{
+width:80px;
+height:80px;
+border-radius:50%;
+margin-bottom:10px;
+}
+
+.price{
+font-weight:bold;
+color:#3c8fa4;
+margin:10px 0;
+}
+
+.doctor-card button{
+background:#3c8fa4;
+color:white;
+border:none;
+padding:10px;
+border-radius:8px;
+cursor:pointer;
+}
+
+
+table{
+width:100%;
+border-collapse:collapse;
+margin-top:20px;
+}
+
+th, td{
+border:1px solid #ddd;
+padding:12px;
+text-align:left;
+}
+
+th{
+background:#3c8fa4;
+color:white;
+}
+
+.right-panel{
+width:280px;
+background:white;
+padding:20px;
+border-radius:12px;
+box-shadow:0 2px 6px rgba(0,0,0,0.1);
+}
+
+.calendar-container{
+margin:20px 0;
+background:white;
+padding:20px;
+border-radius:10px;
+box-shadow:0 2px 8px rgba(0,0,0,0.1);
+}
+.search-box{
+margin:20px 0;
+}
+
+.search-box input{
+width:100%;
+padding:12px;
+border-radius:8px;
+border:1px solid #ccc;
+}
+
+.right-panel{
+width:260px;
+background:white;
+padding:20px;
+border-radius:10px;
+box-shadow:0 2px 8px rgba(0,0,0,0.1);
+margin:20px;
+}
+
+.appointment{
+background:#f4f6f8;
+padding:12px;
+border-radius:8px;
+margin-bottom:10px;
+}

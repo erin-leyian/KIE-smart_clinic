@@ -1,0 +1,80 @@
+.react-calendar {
+  width: 100%;
+  max-width: 500px;
+  background: white;
+  border-radius: 10px;
+  border: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  padding: 20px;
+  color: black; 
+}
+
+
+.react-calendar__tile {
+  padding: 12px;
+  border-radius: 6px;
+  color: black; 
+}
+
+
+.react-calendar__tile--active {
+  background: #3c8fa4;
+  color: white;
+}
+
+
+.react-calendar__tile--now {
+  background: #d6eef5;
+  color: black;
+}
+
+
+.react-calendar__tile:hover {
+  background: #e6f2f5;
+  color: black;
+}
+
+
+.react-calendar__month-view__days__day--neighboringMonth {
+  color: #999; 
+}
+
+
+.react-calendar__month-view__days__day--weekend {
+  color: #d10000;
+}
+
+
+.react-calendar__navigation button {
+  color: #3c8fa4;
+  font-weight: bold;
+}
+.booking-form{
+margin-top:20px;
+display:flex;
+flex-direction:column;
+gap:10px;
+max-width:300px;
+}
+
+.booking-form input,
+.booking-form select{
+padding:10px;
+border-radius:6px;
+border:1px solid #ccc;
+}
+
+.booking-form button{
+padding:12px;
+background:#3c8fa4;
+color:white;
+border:none;
+border-radius:8px;
+cursor:pointer;
+}
+
+.success{
+margin-top:10px;
+color:green;
+font-weight:bold;
+}

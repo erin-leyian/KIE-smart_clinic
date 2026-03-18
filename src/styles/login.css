@@ -1,0 +1,37 @@
+.login-container{
+display:flex;
+height:100vh;
+font-family:Arial;
+}
+
+.login-left{
+flex:1;
+background:#8da3a9;
+color:white;
+padding:80px;
+position:relative;
+}
+
+.login-right{
+flex:1;
+display:flex;
+flex-direction:column;
+justify-content:center;
+padding:80px;
+}
+
+input{
+padding:12px;
+margin:10px 0;
+border-radius:6px;
+border:1px solid #ccc;
+}
+
+button{
+padding:14px;
+background:#3c8fa4;
+color:white;
+border:none;
+border-radius:8px;
+cursor:pointer;
+}
