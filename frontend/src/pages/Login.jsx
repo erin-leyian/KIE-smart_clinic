@@ -1,9 +1,14 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { apiRequest } from '../lib/api';
+import { useAuth } from '../context/AuthContext';
+import { resolveRole } from '../utils/auth';
 import './Login.css';
 
 function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { login } = useAuth();
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -48,26 +53,23 @@ function Login() {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/login', {
+      const payload = await apiRequest('/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: {
           email: formData.email,
           password: formData.password,
-        }),
+        },
       });
 
-      if (!response.ok) {
-        const data = await response.json();
-        setErrors({ form: data.message || 'Login failed' });
-        return;
-      }
+      login(payload);
 
-      const data = await response.json();
-      localStorage.setItem('token', data.token);
-      navigate('/dashboard');
-    } catch (err) {
-      setErrors({ form: 'Cannot connect to server. Is the backend running?' });
+      const role = resolveRole(payload, payload?.token || payload?.accessToken);
+      const fallbackPath = role === 'receptionist' ? '/queue' : '/dashboard';
+      const fromPath = location.state?.from;
+
+      navigate(fromPath || fallbackPath, { replace: true });
+    } catch (error) {
+      setErrors({ form: error.message || 'Cannot connect to server. Is the backend running?' });
     } finally {
       setLoading(false);
     }
