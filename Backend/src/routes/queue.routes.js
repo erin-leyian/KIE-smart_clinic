@@ -13,18 +13,18 @@ const { authenticate, requireRole } = require('../middleware/auth.middleware');
 router.use(authenticate);
 
 // GET /api/queue — get the full live queue (staff view)
-router.get('/', requireRole('admin', 'receptionist'), getQueue);
+router.get('/', requireRole('Admin', 'receptionist'), getQueue);
 
 // GET /api/queue/position/:patientId — get a specific patient's queue position
-router.get('/position/:patientId', requireRole('admin', 'receptionist'), getQueuePosition);
+router.get('/position/:patientId', requireRole('Admin', 'receptionist'), getQueuePosition);
 
 // POST /api/queue/checkin/:patientId — check in a patient (adds them to the queue)
-router.post('/checkin/:patientId', requireRole('admin', 'receptionist'), checkInPatient);
+router.post('/checkin/:patientId', requireRole('Admin', 'receptionist'), checkInPatient);
 
 // DELETE /api/queue/:tokenId — remove a patient from the queue
-router.delete('/:tokenId', requireRole('admin', 'receptionist'), removeFromQueue);
+router.delete('/:tokenId', requireRole('Admin', 'receptionist'), removeFromQueue);
 
 // PUT /api/queue/reorder — reorder the queue (admin only)
-router.put('/reorder', requireRole('admin'), reorderQueue);
+router.put('/reorder', requireRole('Admin'), reorderQueue);
 
 module.exports = router;
