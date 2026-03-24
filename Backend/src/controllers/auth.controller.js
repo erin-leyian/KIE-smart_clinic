@@ -1,49 +1,80 @@
-const jwt = require('jsonwebtoken');
+const pool = require('../db');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
-// Fake users — remove when DB is connected
-const fakeUsers = [
-  { user_id: 1, username: 'admin', password: 'admin123', role: 'admin' },
-  { user_id: 2, username: 'receptionist', password: 'recep123', role: 'receptionist' },
-];
-
+// ── POST /api/auth/register ───────────────────────────────────────────────────
 const register = async (req, res) => {
-  const { username, password, role } = req.body;
-  if (!username || !password || !role) {
-    return res.status(400).json({ error: 'username, password, and role are required' });
+  const { firstName, lastName, email, phoneNumber, password, role, clinicId } = req.body;
+
+  if (!firstName || !lastName || !email || !password || !role || !clinicId) {
+    return res.status(400).json({ error: 'firstName, lastName, email, password, role and clinicId are required' });
   }
 
-  // TODO: replace with real DB insert when connected
-  // const hashedPassword = await bcrypt.hash(password, 10);
-  // const [result] = await pool.query('INSERT INTO users ...', [...]);
+  const validRoles = ['Receptionist', 'Nurse', 'Doctor', 'Admin', 'Other'];
+  if (!validRoles.includes(role)) {
+    return res.status(400).json({ error: `role must be one of: ${validRoles.join(', ')}` });
+  }
 
-  const exists = fakeUsers.find(u => u.username === username);
-  if (exists) return res.status(409).json({ error: 'Username already exists' });
-
-  const newUser = { user_id: fakeUsers.length + 1, username, password, role };
-  fakeUsers.push(newUser);
-  res.status(201).json({ message: 'User registered', user_id: newUser.user_id });
+  try {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const [result] = await pool.query(
+      'INSERT INTO ClinicStaff (ClinicID, FirstName, LastName, Email, PhoneNumber, Role, PasswordHash) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [clinicId, firstName, lastName, email, phoneNumber || null, role, hashedPassword]
+    );
+    res.status(201).json({ message: 'Staff registered successfully', staffId: result.insertId });
+  } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ error: 'Email or phone number already exists' });
+    }
+    res.status(500).json({ error: 'Registration failed', details: err.message });
+  }
 };
 
+// ── POST /api/auth/login ──────────────────────────────────────────────────────
 const login = async (req, res) => {
-  const { username, password } = req.body;
-  if (!username || !password) {
-    return res.status(400).json({ error: 'username and password are required' });
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ error: 'email and password are required' });
   }
 
-  // TODO: replace with real DB query when connected
-  // const [rows] = await pool.query('SELECT * FROM users WHERE username = ?', [username]);
+  try {
+    const [rows] = await pool.query(
+      'SELECT * FROM ClinicStaff WHERE Email = ? AND IsActive = 1',
+      [email]
+    );
 
-  const user = fakeUsers.find(u => u.username === username && u.password === password);
-  if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+    if (rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
 
-  const token = jwt.sign(
-    { user_id: user.user_id, username: user.username, role: user.role },
-    process.env.JWT_SECRET,
-    { expiresIn: '8h' }
-  );
+    const staff = rows[0];
+    const match = await bcrypt.compare(password, staff.PasswordHash);
+    if (!match) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
 
-  res.json({ message: 'Login successful', token, role: user.role });
+    const token = jwt.sign(
+      {
+        staffId: staff.StaffID,
+        email: staff.Email,
+        role: staff.Role,
+        clinicId: staff.ClinicID,
+        name: `${staff.FirstName} ${staff.LastName}`
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '8h' }
+    );
+
+    res.json({
+      message: 'Login successful',
+      token,
+      role: staff.Role,
+      name: `${staff.FirstName} ${staff.LastName}`
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Login failed', details: err.message });
+  }
 };
 
 module.exports = { register, login };
