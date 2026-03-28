@@ -1,47 +1,72 @@
 # QueueCare Frontend
 
-This is the React frontend for the KIE Smart Clinic application. To make this fully operational with the backend, you need to configure the database and start the backend Node.js server.
+This is the frontend for the QueueCare Smart Clinic application, built with React and Tailwind CSS. Currently, it uses a mock JSON file for dynamic updates and previews.
 
-## Prerequisites
-1. Node.js (v16 or higher)
-2. PostgreSQL (or the SQL database used by the backend)
+## Application Architecture
+- `src/pages/Auth.jsx`: Handles Login and Registration flow.
+- `src/pages/Home/`: Landing page showcasing recommended doctors.
+- `src/pages/Dashboard/`: Main dashboard application routes (Calendar, Profile, Records, Consults, Help).
+- `src/data/mockData.json`: Contains the mock database state for fast prototyping without a backend.
 
-## Configuring the Backend (Database)
+---
 
-The frontend makes HTTP requests to \`http://localhost:5000/api\` to handle authentication and fetch patient records natively.
+## 🛠 Transitioning from Mock Data to Real Database API
 
-1. Navigate to your \`backend\` directory.
-2. Make sure you have your database running.
-3. Import the \`smart_clinic_schema.sql\` file into your database to create the necessary tables (\`users\`, \`appointments\`, etc.):
-   \`\`\`bash
-   # Example for PostgreSQL
-   psql -U your_user -d your_db_name -f smart_clinic_schema.sql
-   \`\`\`
-4. Configure your backend `.env` variables or `db.py` / `index.js` connection strings to point to the newly created database.
-5. Seed the \`users\` table with at least one doctor account, or use the sign-up form on the frontend to create a new user.
-6. Start the backend:
-   \`\`\`bash
-   npm run dev 
-   # or node server.js
-   \`\`\`
+This application is currently using local mock JSON data. When connecting it to your real Node/Express/MSSQL (or MongoDB) backend, follow these steps:
 
-## Running the Frontend
+### 1. Configure the Main API Base URL
+In your project, preferably create a `.env` file in the `frontend/` directory with your endpoint:
 
-Once the backend is live at \`http://localhost:5000\`:
+```env
+VITE_API_URL=http://localhost:5000/api
+```
 
-1. Install frontend dependencies:
-   \`\`\`bash
-   cd frontend
-   npm install
-   \`\`\`
-2. Start the Vite server:
-   \`\`\`bash
-   npm run dev
-   \`\`\`
+### 2. Configure Login (Auth.jsx)
 
-### Features Implemented
-- **Solid Login:** The Auth page now captures email, phone, and password state. It makes an actual \`POST\` fetch request to \`/api/auth/login\` and \`/api/auth/register\`. If the backend is running and valid, it handles the JWT token and redirects.
-- **Dynamic Patient Records:** The \`PatientRecords.jsx\` component uses a \`useEffect\` hook to fetch records from \`/api/appointments\`. If the backend fails or isn't running yet, it seamlessly falls back to display mocked UI data so you can continue building frontend layouts. 
+Open `src/pages/Auth.jsx`. Remove the `mockData.json` local matching logic. Replace it with a standard Fetch/Axios request to your backend:
 
-## Icons
-All primitive emojis have been replaced with standard SVG icons using \`lucide-react\`.
+```jsx
+// BEFORE:
+await new Promise(resolve => setTimeout(resolve, 800));
+const user = mockData.users.find(u => u.email === email && u.password === password);
+
+// AFTER:
+const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ email, password })
+});
+const data = await response.json();
+if (!response.ok) throw new Error(data.message);
+localStorage.setItem('token', data.token);
+localStorage.setItem('user', JSON.stringify(data.user));
+```
+
+Make sure your backend `/api/auth/login` returns a correct JWT token and `user` object.
+
+### 3. Configure Patient Records (PatientRecords.jsx)
+
+Open `src/pages/Dashboard/PatientRecords.jsx`. Replace the mockData mapped array logic with an authenticated Fetch to your `GET /api/appointments` API. 
+
+```jsx
+// BEFORE: 
+const formattedRecords = mockData.patientRecords.map(record => ...);
+
+// AFTER:
+const token = localStorage.getItem("token");
+const response = await fetch(`${import.meta.env.VITE_API_URL}/appointments`, {
+  headers: { "Authorization": `Bearer ${token}` }
+});
+const data = await response.json();
+setRecords(data); 
+// Ensure `data` maps correctly to what the component expects (id, date, time, patientName etc.)
+```
+
+### 4. Updating Profile and Calendar
+Do the same for `Profile.jsx` and `Calendar.jsx`. Remove `mockData.json` imports and instead populate the `useEffect` hook using fetch to endpoints like `/api/users/profile` and `/api/appointments/schedule` respectively.
+
+## Running the Application
+```bash
+npm install
+npm run dev
+```
