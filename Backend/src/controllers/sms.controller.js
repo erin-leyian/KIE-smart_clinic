@@ -123,7 +123,7 @@ const handleQueue = async (phone) => {
       'SELECT * FROM Patient WHERE PhoneNumber = ?', [phone]
     );
     if (patients.length === 0) {
-      return 'You are not registered. Send REGISTER Your Name Age first.';
+      return 'You are not registered. Send REGISTER Your Name and Age first.';
     }
 
     const patient = patients[0];
