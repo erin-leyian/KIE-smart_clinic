@@ -162,8 +162,8 @@ const handleCancel = async (phone) => {
 
     const patient = patients[0];
     const [appointments] = await pool.query(
-      'SELECT * FROM Appointment WHERE PatientID = ? AND Status = "Pending" ORDER BY AppointmentDate ASC, AppointmentTime ASC LIMIT 1',
-      [patient.PatientID]
+      'SELECT * FROM Appointment WHERE PatientID = ? AND Status = ? ORDER BY AppointmentDate ASC, AppointmentTime ASC LIMIT 1',
+      [patient.PatientID, 'Pending']
     );
 
     if (appointments.length === 0) {
