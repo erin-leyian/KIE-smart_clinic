@@ -32,29 +32,35 @@ export default function Auth() {
     setLoading(true);
 
     try {
-      const endpoint = isLogin ? "/api/auth/login" : "/api/auth/register";
-      
-      const payload = isLogin 
-        ? { email, password }
-        : { email, password, username: email.split('@')[0] }; // Mocking username since it's required usually
+      // Simulate network request
+      await new Promise((resolve) => setTimeout(resolve, 800));
 
-      const res = await fetch(`http://localhost:5000${endpoint}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      if (isLogin) {
+        // Mock Login
+        const user = mockData.users.find(
+          (u) => u.email === email && u.password === password
+        );
 
-      const data = await res.json();
+        if (!user) {
+          throw new Error("Invalid email or password");
+        }
 
-      if (!res.ok) {
-        throw new Error(data.message || data.error || "Authentication failed");
+        localStorage.setItem("user", JSON.stringify(user));
+        localStorage.setItem("token", "dummy-mock-token-12345");
+        navigate("/dashboard");
+      } else {
+        // Mock Signup
+        const newUser = {
+          id: Date.now(),
+          email,
+          password,
+          name: email.split("@")[0],
+          role: "patient",
+        };
+        localStorage.setItem("user", JSON.stringify(newUser));
+        localStorage.setItem("token", "dummy-mock-token-12345");
+        navigate("/dashboard");
       }
-
-      // Store token on success
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user || {}));
-      
-      navigate("/dashboard");
     } catch (err) {
       setError(err.message);
     } finally {
