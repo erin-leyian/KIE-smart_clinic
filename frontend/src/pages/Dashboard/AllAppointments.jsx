@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { Clock, MapPin, Phone, Video, MessageSquare, CheckCircle, Calendar, ChevronDown } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Clock, MapPin, Phone, Video, MessageSquare, CheckCircle, Calendar, ChevronDown, AlertCircle, RotateCcw } from 'lucide-react';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import Modal from '../../components/Modal';
 import mockData from '../../data/mockData.json';
 import { getIconComponent, getSpecialtyBgColor } from '../../utils/medicalIcons';
+import { formatErrorMessage } from '../../utils/errorHandler';
 
 export default function AllAppointments() {
   const [appointments, setAppointments] = useState(mockData.appointments || []);
@@ -11,6 +12,58 @@ export default function AllAppointments() {
   const [appointmentModal, setAppointmentModal] = useState(false);
   const [filterStatus, setFilterStatus] = useState('All');
   const [sortBy, setSortBy] = useState('date');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  // Load appointments data with error handling
+  useEffect(() => {
+    const loadAppointments = async () => {
+      try {
+        setLoading(true);
+        setError('');
+        
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, 600));
+        
+        // Validate data
+        if (!mockData.appointments || !Array.isArray(mockData.appointments) || mockData.appointments.length === 0) {
+          throw new Error('No appointments found. Please try again.');
+        }
+        
+        setAppointments(mockData.appointments);
+        setLoading(false);
+      } catch (err) {
+        const errorMessage = formatErrorMessage(err);
+        setError(errorMessage);
+        setLoading(false);
+      }
+    };
+    
+    loadAppointments();
+  }, []);
+
+  // Retry loading appointments
+  const handleRetryLoadData = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 600));
+      
+      // Validate data
+      if (!mockData.appointments || !Array.isArray(mockData.appointments) || mockData.appointments.length === 0) {
+        throw new Error('No appointments found. Please try again.');
+      }
+      
+      setAppointments(mockData.appointments);
+      setLoading(false);
+    } catch (err) {
+      const errorMessage = formatErrorMessage(err);
+      setError(errorMessage);
+      setLoading(false);
+    }
+  };
 
   // Filter appointments
   const filteredAppointments = appointments.filter(apt => {
@@ -49,6 +102,27 @@ export default function AllAppointments() {
 
   return (
     <DashboardLayout title="All Appointments">
+      {/* Error Banner */}
+      {error && (
+        <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-start justify-between">
+          <div className="flex items-start space-x-3">
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-semibold text-red-800">Error Loading Appointments</h3>
+              <p className="text-red-700 text-sm mt-1">{error}</p>
+            </div>
+          </div>
+          <button
+            onClick={handleRetryLoadData}
+            className="flex items-center space-x-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors flex-shrink-0"
+            title="Retry loading appointments"
+          >
+            <RotateCcw className="w-4 h-4" />
+            <span className="text-sm">Retry</span>
+          </button>
+        </div>
+      )}
+      
       <div className="max-w-7xl mx-auto">
         {/* Filter and Sort Section */}
         <div className="bg-white rounded-xl border border-gray-100 p-6 shadow-sm mb-6">

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Search, Star, CreditCard, Clock, ChevronDown } from 'lucide-react';
+import { Search, Star, CreditCard, Clock, ChevronDown, AlertCircle, RotateCcw } from 'lucide-react';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import Modal from '../../components/Modal';
 import mockData from '../../data/mockData.json';
 import { getIconComponent, getSpecialtyBgColor } from '../../utils/medicalIcons';
+import { formatErrorMessage } from '../../utils/errorHandler';
 
 export default function AllDoctors() {
   const location = useLocation();
@@ -15,6 +16,8 @@ export default function AllDoctors() {
   const [bookedDoctors, setBookedDoctors] = useState({});
   const [bookingModal, setBookingModal] = useState(false);
   const [selectedDoctorForBooking, setSelectedDoctorForBooking] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const doctors = mockData.doctors;
 
@@ -26,6 +29,54 @@ export default function AllDoctors() {
       setSearchTerm(decodeURIComponent(searchParam));
     }
   }, [location.search]);
+
+  // Load doctors data with error handling
+  useEffect(() => {
+    const loadDoctors = async () => {
+      try {
+        setLoading(true);
+        setError('');
+        
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, 600));
+        
+        // Validate data
+        if (!mockData.doctors || !Array.isArray(mockData.doctors) || mockData.doctors.length === 0) {
+          throw new Error('No doctors found. Please try again.');
+        }
+        
+        setLoading(false);
+      } catch (err) {
+        const errorMessage = formatErrorMessage(err);
+        setError(errorMessage);
+        setLoading(false);
+      }
+    };
+    
+    loadDoctors();
+  }, []);
+
+  // Retry loading doctors
+  const handleRetryLoadData = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 600));
+      
+      // Validate data
+      if (!mockData.doctors || !Array.isArray(mockData.doctors) || mockData.doctors.length === 0) {
+        throw new Error('No doctors found. Please try again.');
+      }
+      
+      setLoading(false);
+    } catch (err) {
+      const errorMessage = formatErrorMessage(err);
+      setError(errorMessage);
+      setLoading(false);
+    }
+  };
 
   // Get unique specialties
   const specialties = ['All', ...new Set(doctors.map(d => d.specialty))];
@@ -51,6 +102,27 @@ export default function AllDoctors() {
 
   return (
     <DashboardLayout title="All Doctors">
+      {/* Error Banner */}
+      {error && (
+        <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-start justify-between">
+          <div className="flex items-start space-x-3">
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-semibold text-red-800">Error Loading Doctors</h3>
+              <p className="text-red-700 text-sm mt-1">{error}</p>
+            </div>
+          </div>
+          <button
+            onClick={handleRetryLoadData}
+            className="flex items-center space-x-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors flex-shrink-0"
+            title="Retry loading doctors"
+          >
+            <RotateCcw className="w-4 h-4" />
+            <span className="text-sm">Retry</span>
+          </button>
+        </div>
+      )}
+      
       <div className="max-w-7xl mx-auto">
         {/* Search and Filter Section */}
         <div className="bg-white rounded-xl border border-gray-100 p-6 shadow-sm mb-6">

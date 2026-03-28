@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import Modal from '../../components/Modal';
 import DashboardLayout from "../../components/Layout/DashboardLayout";
-import { Edit2, FileText } from "lucide-react";
+import { Edit2, FileText, AlertCircle, RotateCcw } from "lucide-react";
 import mockData from "../../data/mockData.json";
+import { formatErrorMessage } from '../../utils/errorHandler';
 
 export default function Profile() {
   const [activeTab, setActiveTab] = useState("general");
@@ -10,15 +11,89 @@ export default function Profile() {
   const [history, setHistory] = useState([]);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editValues, setEditValues] = useState({ name: '', phone: '', email: '' });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    // Simulated fetch
-    setUser(mockData.users[0]);
-    setHistory(mockData.appointments);
+    const loadProfileData = async () => {
+      try {
+        setLoading(true);
+        setError('');
+        
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, 600));
+        
+        // Validate data
+        if (!mockData.users || !Array.isArray(mockData.users) || mockData.users.length === 0) {
+          throw new Error('User profile not found. Please try again.');
+        }
+        if (!mockData.appointments || !Array.isArray(mockData.appointments)) {
+          throw new Error('Consultation history not found.');
+        }
+        
+        setUser(mockData.users[0]);
+        setHistory(mockData.appointments);
+        setLoading(false);
+      } catch (err) {
+        const errorMessage = formatErrorMessage(err);
+        setError(errorMessage);
+        setLoading(false);
+      }
+    };
+    
+    loadProfileData();
   }, []);
+
+  // Retry loading profile data
+  const handleRetryLoadData = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 600));
+      
+      // Validate data
+      if (!mockData.users || !Array.isArray(mockData.users) || mockData.users.length === 0) {
+        throw new Error('User profile not found. Please try again.');
+      }
+      if (!mockData.appointments || !Array.isArray(mockData.appointments)) {
+        throw new Error('Consultation history not found.');
+      }
+      
+      setUser(mockData.users[0]);
+      setHistory(mockData.appointments);
+      setLoading(false);
+    } catch (err) {
+      const errorMessage = formatErrorMessage(err);
+      setError(errorMessage);
+      setLoading(false);
+    }
+  };
 
   return (
     <DashboardLayout title="Profile">
+      {/* Error Banner */}
+      {error && (
+        <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-start justify-between">
+          <div className="flex items-start space-x-3">
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-semibold text-red-800">Error Loading Profile</h3>
+              <p className="text-red-700 text-sm mt-1">{error}</p>
+            </div>
+          </div>
+          <button
+            onClick={handleRetryLoadData}
+            className="flex items-center space-x-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors flex-shrink-0"
+            title="Retry loading profile"
+          >
+            <RotateCcw className="w-4 h-4" />
+            <span className="text-sm">Retry</span>
+          </button>
+        </div>
+      )}
+      
       <div className="flex gap-8">
         {/* Inner Sidebar */}
         <div className="w-64 space-y-2">
