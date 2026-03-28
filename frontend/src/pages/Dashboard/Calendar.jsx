@@ -5,9 +5,12 @@ import mockData from "../../data/mockData.json";
 import { AlertCircle, RotateCcw, ChevronLeft, ChevronRight, Clock, User } from 'lucide-react';
 import { formatErrorMessage } from '../../utils/errorHandler';
 import { getIconComponent, getSpecialtyBgColor } from '../../utils/medicalIcons';
+import { getCurrentUser, getUserRole, getFilteredAppointments } from '../../utils/dataAccessControl';
 
 export default function CalendarView() {
-  const [appointments, setAppointments] = useState(mockData.appointments);
+  const [appointments, setAppointments] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [userRole, setUserRole] = useState('patient');
   const [currentDate, setCurrentDate] = useState(new Date(2026, 2, 28)); // March 28, 2026
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
@@ -24,6 +27,12 @@ export default function CalendarView() {
         setLoading(true);
         setError('');
         
+        // Get current user
+        const user = getCurrentUser();
+        const role = getUserRole();
+        setCurrentUser(user);
+        setUserRole(role);
+        
         // Simulate network delay
         await new Promise(resolve => setTimeout(resolve, 500));
         
@@ -32,7 +41,9 @@ export default function CalendarView() {
           throw new Error('Calendar data is unavailable. Please try again.');
         }
         
-        setAppointments(mockData.appointments);
+        // Get filtered appointments based on user role
+        const filtered = getFilteredAppointments(role, user);
+        setAppointments(filtered);
         setLoading(false);
       } catch (err) {
         const errorMessage = formatErrorMessage(err);
@@ -50,6 +61,12 @@ export default function CalendarView() {
       setLoading(true);
       setError('');
       
+      // Get current user
+      const user = getCurrentUser();
+      const role = getUserRole();
+      setCurrentUser(user);
+      setUserRole(role);
+      
       // Simulate network delay
       await new Promise(resolve => setTimeout(resolve, 500));
       
@@ -58,7 +75,9 @@ export default function CalendarView() {
         throw new Error('Calendar data is unavailable. Please try again.');
       }
       
-      setAppointments(mockData.appointments);
+      // Get filtered appointments based on user role
+      const filtered = getFilteredAppointments(role, user);
+      setAppointments(filtered);
       setLoading(false);
     } catch (err) {
       const errorMessage = formatErrorMessage(err);

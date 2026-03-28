@@ -6,6 +6,7 @@ import Modal from '../../components/Modal';
 import mockData from '../../data/mockData.json';
 import { getIconComponent, getSpecialtyBgColor } from '../../utils/medicalIcons';
 import { formatErrorMessage } from '../../utils/errorHandler';
+import { getCurrentUser, getUserRole, getFilteredDoctors } from '../../utils/dataAccessControl';
 
 export default function AllDoctors() {
   const location = useLocation();
@@ -18,8 +19,10 @@ export default function AllDoctors() {
   const [selectedDoctorForBooking, setSelectedDoctorForBooking] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [currentUser, setCurrentUser] = useState(null);
+  const [userRole, setUserRole] = useState('patient');
 
-  const doctors = mockData.doctors;
+  const [doctors, setDoctors] = useState([]);
 
   // Read search parameter from URL on mount
   useEffect(() => {
@@ -37,6 +40,12 @@ export default function AllDoctors() {
         setLoading(true);
         setError('');
         
+        // Get current user
+        const user = getCurrentUser();
+        const role = getUserRole();
+        setCurrentUser(user);
+        setUserRole(role);
+        
         // Simulate network delay
         await new Promise(resolve => setTimeout(resolve, 600));
         
@@ -45,6 +54,9 @@ export default function AllDoctors() {
           throw new Error('No doctors found. Please try again.');
         }
         
+        // Get filtered doctors based on user role
+        const filtered = getFilteredDoctors(role, user);
+        setDoctors(filtered);
         setLoading(false);
       } catch (err) {
         const errorMessage = formatErrorMessage(err);
@@ -62,6 +74,12 @@ export default function AllDoctors() {
       setLoading(true);
       setError('');
       
+      // Get current user
+      const user = getCurrentUser();
+      const role = getUserRole();
+      setCurrentUser(user);
+      setUserRole(role);
+      
       // Simulate network delay
       await new Promise(resolve => setTimeout(resolve, 600));
       
@@ -70,6 +88,9 @@ export default function AllDoctors() {
         throw new Error('No doctors found. Please try again.');
       }
       
+      // Get filtered doctors based on user role
+      const filtered = getFilteredDoctors(role, user);
+      setDoctors(filtered);
       setLoading(false);
     } catch (err) {
       const errorMessage = formatErrorMessage(err);
