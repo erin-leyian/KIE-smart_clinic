@@ -64,11 +64,6 @@ export default function DashboardLayout({ children, title }) {
       path: "/dashboard/profile",
       icon: <User size={18} />,
     },
-    {
-      name: "Online Consult",
-      path: "/dashboard/consult",
-      icon: <Monitor size={18} />,
-    },
     { name: "Help", path: "/dashboard/help", icon: <HelpCircle size={18} /> },
   ];
 
