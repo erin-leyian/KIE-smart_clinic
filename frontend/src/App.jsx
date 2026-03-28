@@ -5,6 +5,9 @@ import Auth from "./pages/Auth";
 import DashboardHome from "./pages/Dashboard/DashboardHome";
 import PatientRecords from "./pages/Dashboard/PatientRecords";
 import OnlineConsult from "./pages/Dashboard/OnlineConsult";
+import Profile from "./pages/Dashboard/Profile";
+import CalendarView from "./pages/Dashboard/Calendar";
+import Help from "./pages/Dashboard/Help";
 
 function App() {
   return (
@@ -15,6 +18,9 @@ function App() {
         <Route path="/dashboard" element={<DashboardHome />} />
         <Route path="/dashboard/records" element={<PatientRecords />} />
         <Route path="/dashboard/consult" element={<OnlineConsult />} />
+        <Route path="/dashboard/profile" element={<Profile />} />
+        <Route path="/dashboard/calendar" element={<CalendarView />} />
+        <Route path="/dashboard/help" element={<Help />} />
       </Routes>
     </Router>
   );
