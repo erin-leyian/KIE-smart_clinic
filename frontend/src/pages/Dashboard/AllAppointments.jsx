@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, MapPin, Phone, Video, MessageSquare, CheckCircle, Calendar, ChevronDown, AlertCircle, RotateCcw } from 'lucide-react';
+import { Clock, MapPin, Phone, Video, MessageSquare, CheckCircle, Calendar, ChevronDown, AlertCircle, RotateCcw, Edit2, Save, X } from 'lucide-react';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import Modal from '../../components/Modal';
 import mockData from '../../data/mockData.json';
@@ -17,6 +17,8 @@ export default function AllAppointments() {
   const [error, setError] = useState('');
   const [currentUser, setCurrentUser] = useState(null);
   const [userRole, setUserRole] = useState('patient');
+  const [isEditingNotes, setIsEditingNotes] = useState(false);
+  const [notes, setNotes] = useState('');
 
   // Load appointments data with error handling
   useEffect(() => {
@@ -90,13 +92,18 @@ export default function AllAppointments() {
     }
   };
 
-  // Filter appointments - patients see only their own
+  // Filter appointments - patients see only their own, doctors see their appointments
   const filteredAppointments = appointments.filter(apt => {
     // If patient, show only their appointments
     if (userRole === 'patient' && currentUser) {
-      // Filter by patient name or ID matching
       const isPatientAppointment = apt.patientName === currentUser.name || apt.patientId === currentUser.id;
       if (!isPatientAppointment) return false;
+    }
+    
+    // If doctor, show only their appointments
+    if (userRole === 'doctor' && currentUser) {
+      const isDoctorAppointment = apt.doctorName === currentUser.name;
+      if (!isDoctorAppointment) return false;
     }
     
     // Apply status filter
@@ -116,6 +123,8 @@ export default function AllAppointments() {
 
   const openAppointmentDetails = (apt) => {
     setSelectedAppointment(apt);
+    setNotes(apt.notes || '');
+    setIsEditingNotes(false);
     setAppointmentModal(true);
   };
 
@@ -163,6 +172,20 @@ export default function AllAppointments() {
         setAppointments(updated);
         setSelectedAppointment({ ...selectedAppointment, date: newDate, time: newTime, status: 'Confirmed' });
       }
+    }
+  };
+
+  // Save appointment notes (doctor only)
+  const handleSaveNotes = () => {
+    if (selectedAppointment) {
+      const updated = appointments.map(apt =>
+        apt.id === selectedAppointment.id 
+          ? { ...apt, notes } 
+          : apt
+      );
+      setAppointments(updated);
+      setSelectedAppointment({ ...selectedAppointment, notes });
+      setIsEditingNotes(false);
     }
   };
 
@@ -323,7 +346,29 @@ export default function AllAppointments() {
         title={`Appointment with ${selectedAppointment?.doctorName}`}
         size="md"
         actions={[
-          ...(selectedAppointment?.status === 'Completed' ? [
+          ...(userRole === 'doctor' ? [
+            {
+              label: isEditingNotes ? 'Cancel Edit' : 'Close',
+              onClick: () => {
+                setIsEditingNotes(false);
+                setAppointmentModal(false);
+              },
+              variant: 'secondary'
+            },
+            ...(isEditingNotes ? [
+              {
+                label: 'Save Notes',
+                onClick: handleSaveNotes,
+                variant: 'primary'
+              }
+            ] : [
+              {
+                label: 'Add Notes',
+                onClick: () => setIsEditingNotes(true),
+                variant: 'primary'
+              }
+            ])
+          ] : selectedAppointment?.status === 'Completed' ? [
             {
               label: 'Close',
               onClick: () => setAppointmentModal(false),
@@ -401,9 +446,31 @@ export default function AllAppointments() {
             </div>
 
             {/* Notes */}
-            {selectedAppointment.notes && (
+            {userRole === 'doctor' ? (
+              <div className={`${isEditingNotes ? 'border-2 border-teal-500' : 'border border-gray-200'} p-4 rounded-lg`}>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm font-medium text-gray-700">Appointment Notes</p>
+                  {!isEditingNotes && (
+                    <Edit2 className="w-4 h-4 text-teal-600" />
+                  )}
+                </div>
+                {isEditingNotes ? (
+                  <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Add notes about the appointment, diagnosis, treatment plan, etc."
+                    className="w-full p-3 border border-teal-300 rounded-lg outline-none focus:ring-2 focus:ring-teal-500 text-sm"
+                    rows="4"
+                  />
+                ) : (
+                  <p className={`text-sm ${notes ? 'text-gray-700' : 'text-gray-500 italic'}`}>
+                    {notes || 'No notes added yet. Click "Add Notes" to add information.'}
+                  </p>
+                )}
+              </div>
+            ) : selectedAppointment.notes && (
               <div className="bg-blue-50 p-4 rounded-lg">
-                <p className="text-xs text-blue-600 font-medium mb-2">Notes</p>
+                <p className="text-xs text-blue-600 font-medium mb-2">Doctor's Notes</p>
                 <p className="text-sm text-blue-900">{selectedAppointment.notes}</p>
               </div>
             )}

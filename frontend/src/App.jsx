@@ -13,6 +13,7 @@ import CalendarView from "./pages/Dashboard/Calendar";
 import Help from "./pages/Dashboard/Help";
 import AllDoctors from "./pages/Dashboard/AllDoctors";
 import AllAppointments from "./pages/Dashboard/AllAppointments";
+import DoctorAppointments from "./pages/Dashboard/DoctorAppointments";
 import NotificationHistory from "./pages/Dashboard/NotificationHistory";
 
 function App() {
@@ -26,6 +27,7 @@ function App() {
         <Route path="/dashboard/admin" element={<AdminDashboard />} />
         <Route path="/dashboard/doctors" element={<AllDoctors />} />
         <Route path="/dashboard/appointments" element={<AllAppointments />} />
+        <Route path="/dashboard/doctor/appointments" element={<DoctorAppointments />} />
         <Route path="/dashboard/records" element={<PatientRecords />} />
         <Route path="/dashboard/consult" element={<OnlineConsult />} />
         <Route path="/dashboard/profile" element={<Profile />} />

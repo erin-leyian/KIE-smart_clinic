@@ -87,9 +87,19 @@ export default function DashboardLayout({ children, title }) {
     if (role === 'doctor') {
       return [
         {
-          name: "My Availability",
+          name: "Dashboard",
           path: "/dashboard/doctor",
+          icon: <LayoutDashboard size={18} />,
+        },
+        {
+          name: "My Appointments",
+          path: "/dashboard/doctor/appointments",
           icon: <Calendar size={18} />,
+        },
+        {
+          name: "Patient Records",
+          path: "/dashboard/records",
+          icon: <FileText size={18} />,
         },
         ...commonItems,
       ];

@@ -171,6 +171,29 @@ const addNotification = (notification) => {
 };
 
 /**
+ * Create a generic notification from a payload and add it
+ * payload should include: type, title, message, appointmentId?, relatedTo?, relatedName?
+ */
+const createNotification = (payload = {}) => {
+  const id = `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const currentUser = getCurrentUser();
+  const notification = {
+    id,
+    type: payload.type || NOTIFICATION_TYPES.UPDATED,
+    title: payload.title || '',
+    message: payload.message || '',
+    timestamp: new Date().toISOString(),
+    read: false,
+    recipientId: payload.relatedTo || null,
+    recipientName: payload.relatedName || (payload.relatedTo ? null : currentUser?.name || null),
+    appointmentId: payload.appointmentId || null,
+    meta: payload.meta || null,
+  };
+
+  return addNotification(notification);
+};
+
+/**
  * Get user-specific notifications (filtered by role and user ID)
  */
 const getUserNotifications = () => {
@@ -343,8 +366,31 @@ const clearAllNotifications = () => {
   window.dispatchEvent(new CustomEvent('notificationsCleared'));
 };
 
+// Named exports for convenience
+export {
+  notifyAppointmentConfirmed,
+  notifyAppointmentCancelled,
+  notifyAppointmentRescheduled,
+  notifyAppointmentReminder,
+  notifyAppointmentUpdated,
+  getNotifications,
+  getAllNotifications,
+  getUserNotifications,
+  getUnreadCount,
+  markAsRead,
+  clearUserNotifications,
+  clearAllNotifications,
+  createAppointmentNotification,
+  createNotification,
+  addNotification,
+  getCurrentUser,
+  getUserRole,
+  NOTIFICATION_TYPES,
+};
+
 export const notificationManager = {
   createAppointmentNotification,
+  createNotification,
   addNotification,
   notifyAppointmentConfirmed,
   notifyAppointmentCancelled,

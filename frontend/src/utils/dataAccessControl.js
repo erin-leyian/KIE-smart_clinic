@@ -169,31 +169,48 @@ export const canViewAppointment = (appointment, userRole, currentUser) => {
 };
 
 /**
- * Check if user can edit/delete a resource
- * Patients can only edit their own data
- * Doctors can edit their own appointments/availability
- * Admins can edit everything
- * @param {Object} resource - Resource object (appointment, record, etc)
+ * Check if doctor can edit a patient record
+ * Doctors can edit records of their patients (those they have appointments with or created)
+ * @param {Object} record - Patient record object
  * @param {string} userRole - User role
  * @param {Object} currentUser - Current user object
- * @returns {boolean} True if user can edit the resource
+ * @returns {boolean} True if doctor can edit the record
  */
-export const canEditResource = (resource, userRole, currentUser) => {
-  if (userRole === 'admin') return true; // Admins can edit everything
+export const canEditPatientRecord = (record, userRole, currentUser) => {
+  if (userRole === 'admin') return true; // Admins can edit all
   
   if (userRole === 'patient' && currentUser) {
-    // Patients can only edit their own resources
-    return resource.patientId === currentUser.id || 
-           resource.patientName === currentUser.name;
+    // Patients can only edit their own records (via their own page)
+    return record.patientId === currentUser.id || 
+           record.patientName === currentUser.name;
   }
   
   if (userRole === 'doctor' && currentUser) {
-    // Doctors can edit appointments they're part of
-    return resource.doctorName === currentUser.name;
+    // Doctors can edit records of:
+    // 1. Patients they have appointments with (current or past)
+    // 2. Records they created (doctorName matches)
+    const doctorAppointments = mockData.appointments.filter(
+      apt => apt.doctorName === currentUser.name
+    );
+    const patientIds = new Set(doctorAppointments.map(apt => apt.patientId));
+    
+    // Check if doctor has appointment with patient or created the record
+    return patientIds.has(record.patientId) || record.doctorName === currentUser.name;
   }
   
   return false;
 };
+
+/**
+ * Get patient by ID
+ * @param {number|string} patientId - Patient ID
+ * @returns {Object|null} Patient object or null
+ */
+export const getPatientById = (patientId) => {
+  return mockData.users.find(u => u.id === Number(patientId) || u.id === patientId);
+};
+
+
 
 /**
  * Get dashboard statistics for current user

@@ -4,6 +4,7 @@ import DashboardLayout from '../../components/Layout/DashboardLayout';
 import { Clock, User, AlertCircle, Edit2, Save, X, Plus, FileText, Download, MessageSquare, Pill, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import mockData from '../../data/mockData.json';
 import { formatErrorMessage } from '../../utils/errorHandler';
+import { canEditPatientRecord } from '../../utils/dataAccessControl';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -822,7 +823,7 @@ export default function PatientRecords() {
                 <Download className="w-4 h-4" />
                 <span>Download PDF</span>
               </button>
-              {userRole === 'doctor' && (
+              {userRole === 'doctor' && canEditPatientRecord(selectedRecord, userRole, currentUser) && (
                 <button
                   onClick={() => {
                     setDetailModal(false);
@@ -1402,7 +1403,7 @@ export default function PatientRecords() {
                     </button>
                   </div>
                 </div>
-                {userRole === 'doctor' && (
+                {userRole === 'doctor' && canEditPatientRecord(record, userRole, currentUser) && (
                   <div className="ml-4 flex gap-2">
                     <button
                       onClick={() => handleEditRecord(record)}
