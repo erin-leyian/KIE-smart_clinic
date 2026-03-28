@@ -1,0 +1,112 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "email": "steve.madden@gmail.com",
+      "password": "password123",
+      "name": "Stevan dux",
+      "role": "doctor",
+      "specialty": "Gastro Doctor",
+      "location": "United States",
+      "phone": "+1 2387428345",
+      "dob": "03/04/1996",
+      "age": 27,
+      "avatar": "https://randomuser.me/api/portraits/men/32.jpg"
+    }
+  ],
+  "doctors": [
+    {
+      "id": 1,
+      "name": "Amanda Clara",
+      "specialty": "Pediatric",
+      "experience": "12 years experience",
+      "hours": "Tue, Thu 10:00 AM-01:00 PM",
+      "fee": "$25 Starting",
+      "image": "https://randomuser.me/api/portraits/women/44.jpg"
+    },
+    {
+      "id": 2,
+      "name": "Jason shatsky",
+      "specialty": "Surgical",
+      "experience": "10 years experience",
+      "hours": "Tue, Thu 10:00 AM-01:00 PM",
+      "fee": "$35 Starting",
+      "image": "https://randomuser.me/api/portraits/men/45.jpg"
+    },
+    {
+      "id": 3,
+      "name": "Jessie dux",
+      "specialty": "Gastroenterology",
+      "experience": "7 years experience",
+      "hours": "Tue, Thu 10:00 AM-01:00 PM",
+      "fee": "$15 Starting",
+      "image": "https://randomuser.me/api/portraits/women/45.jpg"
+    }
+  ],
+  "patientRecords": [
+    {
+      "id": "1",
+      "date": "Thu 15",
+      "time": "09:00am - 09:30am",
+      "patientName": "Stephine Claire",
+      "issue": "Fever",
+      "documents": "View Documents",
+      "status": "Past"
+    },
+    {
+      "id": "2",
+      "date": "Fri 16",
+      "time": "09:00am - 09:30am",
+      "patientName": "Stephine Claire",
+      "issue": "Fever",
+      "documents": "View Documents",
+      "status": "Past"
+    },
+    {
+      "id": "3",
+      "date": "Mon 19",
+      "time": "09:00am - 09:30am",
+      "patientName": "Stephine Claire",
+      "issue": "Fever",
+      "documents": null,
+      "status": "Today"
+    }
+  ],
+  "appointments": [
+    {
+      "id": 1,
+      "doctorName": "Esther Howard",
+      "time": "7:00am - 8:00am",
+      "date": "Yesterday",
+      "avatar": "https://randomuser.me/api/portraits/women/68.jpg"
+    },
+    {
+      "id": 2,
+      "doctorName": "Cameron Williamson",
+      "time": "10:00am - 11:00am",
+      "date": "Yesterday",
+      "avatar": "https://randomuser.me/api/portraits/women/69.jpg"
+    },
+    {
+      "id": 3,
+      "doctorName": "Guy Hawkins",
+      "time": "12:00pm - 1:00pm",
+      "date": "Yesterday",
+      "avatar": "https://randomuser.me/api/portraits/men/68.jpg"
+    },
+    {
+      "id": 4,
+      "doctorName": "Jane Cooper",
+      "time": "7:00am - 8:00am",
+      "date": "Today",
+      "avatar": "https://randomuser.me/api/portraits/women/70.jpg"
+    },
+    {
+      "id": 5,
+      "doctorName": "Brooklyn Simmons",
+      "time": "10:00am - 11:00am",
+      "date": "Today",
+      "avatar": "https://randomuser.me/api/portraits/women/71.jpg"
+    }
+  ]
+}

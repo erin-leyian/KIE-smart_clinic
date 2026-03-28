@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, Link, useNavigate } from "react-router-dom";
 import { Heart, Calendar, X, Apple, Facebook } from "lucide-react";
+import mockData from "../data/mockData.json";
 
 export default function Auth() {
   const location = useLocation();
