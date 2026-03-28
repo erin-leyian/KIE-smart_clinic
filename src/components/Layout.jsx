@@ -33,11 +33,11 @@ export default function Layout() {
   }, [navigate]);
 
   const [currentUser, setCurrentUser] = useState({
-    name: 'Stevan dux',
-    email: 'stevan.dux@gmail.com',
-    role: 'Admin',
-    img: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=150&h=150'
-  });
+  name: localStorage.getItem('name') || 'User',
+  email: localStorage.getItem('email') || '',
+  role: localStorage.getItem('role') || 'Staff',
+  img: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=150&h=150'
+});
 
   const alternateUser = {
     name: 'Amanda Clara',
@@ -85,10 +85,35 @@ export default function Layout() {
     setUserMenuOpen(false);
   };
 
-  const [upcomingAppointments, setUpcomingAppointments] = useState([
-    { id: 1, doctor: 'Habimana Jean', day: 'Fri', date: '14', time: '10:00am - 10:30am', color: '#EF4444', bg: '#FFF1F2' },
-    { id: 2, doctor: 'Uwase Solange', day: 'Sat', date: '15', time: '10:00am - 10:30am', color: 'var(--text-main)', bg: '#F3F4F6' }
-  ]);
+  const [upcomingAppointments, setUpcomingAppointments] = useState([]);
+
+useEffect(() => {
+  const token = localStorage.getItem('token');
+  if (!token) return;
+
+  fetch('https://kie-smart-clinic.onrender.com/api/appointments', {
+    headers: { Authorization: `Bearer ${token}` }
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (data.appointments) {
+        const formatted = data.appointments.map(appt => {
+          const date = new Date(appt.AppointmentDate);
+          return {
+            id: appt.AppointmentID,
+            doctor: `${appt.DoctorFirstName} ${appt.DoctorLastName}`,
+            day: date.toLocaleDateString('en-US', { weekday: 'short' }),
+            date: date.getDate().toString(),
+            time: appt.AppointmentTime,
+            color: appt.Status === 'Confirmed' ? '#EF4444' : 'var(--text-main)',
+            bg: appt.Status === 'Confirmed' ? '#FFF1F2' : '#F3F4F6'
+          };
+        });
+        setUpcomingAppointments(formatted);
+      }
+    })
+    .catch(err => console.error('Failed to fetch appointments:', err));
+}, []);
 
   const handleLogout = () => {
     toast.success(t.logout);

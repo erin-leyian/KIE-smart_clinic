@@ -3,14 +3,44 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
+const API_URL = 'https://kie-smart-clinic.onrender.com';
+
 export default function Login() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    toast.success('Successfully logged in!');
-    navigate('/dashboard');
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        toast.error(data.error || 'Login failed');
+        return;
+      }
+
+      // Save token and user info
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('role', data.role);
+      localStorage.setItem('name', data.name);
+
+      toast.success(`Welcome back, ${data.name}!`);
+      navigate('/dashboard');
+    } catch (err) {
+      toast.error('Network error. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -27,18 +57,26 @@ export default function Login() {
       <form onSubmit={handleLogin}>
         <div className="form-group">
           <label className="form-label">Email address</label>
-          <input type="email" className="form-input" placeholder="Email address" defaultValue="stevan.dux@gmail.com" />
+          <input
+            type="email"
+            className="form-input"
+            placeholder="Email address"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
         </div>
         <div className="form-group">
           <label className="form-label">Your password</label>
           <div style={{ position: 'relative' }}>
-            <input 
-              type={showPassword ? 'text' : 'password'} 
-              className="form-input" 
-              defaultValue=".........." 
-              required 
+            <input
+              type={showPassword ? 'text' : 'password'}
+              className="form-input"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
             />
-            <div 
+            <div
               style={{ position: 'absolute', right: '12px', top: '12px', color: 'var(--text-muted)', cursor: 'pointer' }}
               onClick={() => setShowPassword(!showPassword)}
             >
@@ -51,47 +89,18 @@ export default function Login() {
           <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: 'var(--text-muted)' }}>
             <input type="checkbox" /> Remember me
           </label>
-          <a href="#" style={{ fontSize: '14px', color: 'var(--primary)', fontWeight: 500 }} onClick={(e) => { e.preventDefault(); toast.success('Password reset email sent!') }}>Forgot password?</a>
+          <a href="#" style={{ fontSize: '14px', color: 'var(--primary)', fontWeight: 500 }}>Forgot password?</a>
         </div>
 
-        <button type="submit" className="btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '12px', marginBottom: '24px' }}>
-          Log in
+        <button
+          type="submit"
+          className="btn-primary"
+          style={{ width: '100%', justifyContent: 'center', padding: '12px', marginBottom: '24px' }}
+          disabled={loading}
+        >
+          {loading ? 'Logging in...' : 'Log in'}
         </button>
-
-        <div style={{ textAlign: 'center', fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
-          Or log in with
-        </div>
-        <div style={{ display: 'flex', gap: '12px' }}>
-           <button 
-             type="button" 
-             style={{ flex: 1, padding: '10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', transition: 'all 0.2s', fontWeight: 700, background: 'white' }} 
-             onMouseEnter={(e) => e.target.style.background = '#f8f9fa'}
-             onMouseLeave={(e) => e.target.style.background = 'white'}
-             onClick={() => { toast.success('Logged in with Google'); navigate('/dashboard'); }}
-           >
-             <span style={{ color: '#4285F4' }}>G</span><span style={{ color: '#EA4335' }}>o</span><span style={{ color: '#FBBC05' }}>o</span><span style={{ color: '#4285F4' }}>g</span><span style={{ color: '#34A853' }}>l</span><span style={{ color: '#EA4335' }}>e</span>
-           </button>
-           <button 
-             type="button" 
-             style={{ flex: 1, padding: '10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', transition: 'all 0.2s', fontWeight: 700, background: '#1877F2', color: 'white' }} 
-             onMouseEnter={(e) => e.target.style.opacity = '0.9'}
-             onMouseLeave={(e) => e.target.style.opacity = '1'}
-             onClick={() => { toast.success('Logged in with Facebook'); navigate('/dashboard'); }}
-           >
-             Facebook
-           </button>
-           <button 
-             type="button" 
-             style={{ flex: 1, padding: '10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', transition: 'all 0.2s', fontWeight: 700, background: '#000000', color: 'white' }} 
-             onMouseEnter={(e) => e.target.style.opacity = '0.8'}
-             onMouseLeave={(e) => e.target.style.opacity = '1'}
-             onClick={() => { toast.success('Logged in with Apple'); navigate('/dashboard'); }}
-           >
-             Apple
-           </button>
-        </div>
       </form>
     </>
   );
 }
-
