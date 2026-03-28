@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import { Clock, User } from 'lucide-react';
+import mockData from '../../data/mockData.json';
 
 export default function PatientRecords() {
   const [records, setRecords] = useState([]);
@@ -9,46 +10,22 @@ export default function PatientRecords() {
 
   const fetchRecords = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch("http://localhost:5000/api/appointments", {
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
-      });
+      // Simulate network request
+      await new Promise(resolve => setTimeout(resolve, 500));
       
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || "Failed to fetch records");
-      }
-      
-      // Formatting the generic appointment response
-      // Example data might look different, adapting fields gracefully
-      const formattedRecords = data.map((apt, index) => {
-        const dateObj = new Date(apt.appointment_time || Date.now());
-        const day = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
-        const dateStr = dateObj.getDate().toString().padStart(2, '0');
-        const timeStr = dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }).toLowerCase();
-        
-        return {
-          id: apt.id || index + 1,
-          date: dateStr,
-          day: day,
-          time: timeStr,
-          patient: apt.patient_name || `Patient #${apt.patient_id || index + 1}`,
-          issue: apt.status || 'Consultation',
-          hasDocs: false 
-        };
-      });
+      const formattedRecords = mockData.patientRecords.map(record => ({
+        id: record.id,
+        date: record.date.split(" ")[1],
+        day: record.date.split(" ")[0],
+        time: record.time,
+        patient: record.patientName,
+        issue: record.issue,
+        hasDocs: record.documents !== null
+      }));
 
       setRecords(formattedRecords);
     } catch (err) {
       setError(err.message);
-      // Fallback data if backend is not running yet
-      setRecords([
-        { id: 1, date: '15', day: 'Thu', time: '09:00am', patient: 'Keza Bella', issue: 'Fever (Mock)', hasDocs: true },
-        { id: 2, date: '16', day: 'Fri', time: '09:30am', patient: 'Manzi Kevin', issue: 'Cough (Mock)', hasDocs: true },
-        { id: 3, date: '19', day: 'Mon', time: '10:00am', patient: 'Akaliza M.', issue: 'Headache (Mock)', hasDocs: false },
-      ]);
     } finally {
       setLoading(false);
     }
@@ -75,7 +52,7 @@ export default function PatientRecords() {
 
       {error && (
         <div className="mb-4 p-3 bg-yellow-50 text-yellow-700 text-sm rounded-md border border-yellow-200">
-          Showing mock data. Could not load live records from API: {error}
+          Error loading records: {error}
         </div>
       )}
 

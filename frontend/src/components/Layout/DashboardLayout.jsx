@@ -27,17 +27,21 @@ export default function DashboardLayout({ children, title }) {
       icon: <FileText size={18} />,
     },
     {
-      name: "My Availability",
-      path: "/dashboard/availability",
+      name: "Calendar",
+      path: "/dashboard/calendar",
       icon: <Calendar size={18} />,
     },
-    { name: "My Consults", path: "#", icon: <User size={18} /> },
+    {
+      name: "Profile",
+      path: "/dashboard/profile",
+      icon: <User size={18} />,
+    },
     {
       name: "Online Consult",
       path: "/dashboard/consult",
       icon: <Monitor size={18} />,
     },
-    { name: "Help", path: "#", icon: <HelpCircle size={18} /> },
+    { name: "Help", path: "/dashboard/help", icon: <HelpCircle size={18} /> },
   ];
 
   return (
@@ -84,15 +88,19 @@ export default function DashboardLayout({ children, title }) {
         {/* Top Header */}
         <header className="bg-white border-b px-8 py-4 flex justify-between items-center">
           <div>
-            <p className="text-sm text-gray-500">Hi, Dr. Nshimiyimana</p>
+            <p className="text-sm text-gray-500">Hi, Stevan dux</p>
             <h1 className="text-2xl font-bold text-gray-800">{title}</h1>
           </div>
           <div className="flex items-center space-x-4 text-sm">
             <span className="text-gray-600">EN ∨</span>
             <Bell className="text-gray-400" size={20} />
             <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 rounded-full bg-gray-300"></div>
-              <span className="font-medium">Dr. Nshimiyimana</span>
+              <img
+                src="https://randomuser.me/api/portraits/men/32.jpg"
+                alt="Profile"
+                className="w-8 h-8 rounded-full"
+              />
+              <span className="font-medium">Stevan dux</span>
             </div>
           </div>
         </header>
