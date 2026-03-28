@@ -15,10 +15,20 @@ export default function Profile() {
   // Edit modals
   const [showEditPersonal, setShowEditPersonal] = useState(false);
   const [showEditContact, setShowEditContact] = useState(false);
+  const [showSaveConsultModal, setShowSaveConsultModal] = useState(false);
   
   // Edit values
   const [editPersonal, setEditPersonal] = useState({ dob: '', age: '' });
   const [editContact, setEditContact] = useState({ phone: '', email: '', location: '' });
+  
+  // Online consultations
+  const [consultationSettings, setConsultationSettings] = useState({
+    enabled: true,
+    types: { text: false, video: true, call: false },
+    duration: '30 mins',
+    fees: '25000'
+  });
+  const [savingConsult, setSavingConsult] = useState(false);
 
   useEffect(() => {
     const loadProfileData = async () => {
@@ -85,6 +95,13 @@ export default function Profile() {
   const handleSaveContact = () => {
     setUser(prev => ({ ...prev, phone: editContact.phone, email: editContact.email, location: editContact.location }));
     setShowEditContact(false);
+  };
+
+  const handleSaveConsultSettings = async () => {
+    setSavingConsult(true);
+    await new Promise(r => setTimeout(r, 700));
+    setSavingConsult(false);
+    setShowSaveConsultModal(false);
   };
 
   return (
@@ -295,6 +312,132 @@ export default function Profile() {
               </div>
             )}
 
+            {/* ONLINE CONSULTATIONS TAB */}
+            {activeTab === 'consultations' && (
+              <div className="space-y-8">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-800 mb-4">Online Consultation Settings</h3>
+                  <p className="text-gray-600 text-sm mb-8 max-w-3xl">
+                    Set up your availability for online consultations with patients. This allows the queue management system to correctly place patients.
+                  </p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {/* Availability */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-3">Availability</label>
+                      <div className="flex space-x-6">
+                        <label className="flex items-center space-x-2 cursor-pointer">
+                          <input 
+                            type="radio" 
+                            name="availability" 
+                            checked={!consultationSettings.enabled}
+                            onChange={() => setConsultationSettings(prev => ({ ...prev, enabled: false }))}
+                            className="w-4 h-4 text-teal-500" 
+                          />
+                          <span className="text-gray-700">Disable</span>
+                        </label>
+                        <label className="flex items-center space-x-2 cursor-pointer">
+                          <input 
+                            type="radio" 
+                            name="availability" 
+                            checked={consultationSettings.enabled}
+                            onChange={() => setConsultationSettings(prev => ({ ...prev, enabled: true }))}
+                            className="w-4 h-4 text-teal-500" 
+                          />
+                          <span className="text-gray-700">Enable</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Type of Availability */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-3">Type Of Availability</label>
+                      <div className="flex space-x-6">
+                        <label className="flex items-center space-x-2 cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            checked={consultationSettings.types.text}
+                            onChange={() => setConsultationSettings(prev => ({ 
+                              ...prev, 
+                              types: { ...prev.types, text: !prev.types.text } 
+                            }))}
+                            className="w-4 h-4 text-teal-500 rounded" 
+                          />
+                          <span className="text-gray-700">Text</span>
+                        </label>
+                        <label className="flex items-center space-x-2 cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            checked={consultationSettings.types.video}
+                            onChange={() => setConsultationSettings(prev => ({ 
+                              ...prev, 
+                              types: { ...prev.types, video: !prev.types.video } 
+                            }))}
+                            className="w-4 h-4 text-teal-500 rounded" 
+                          />
+                          <span className="text-gray-700">Video</span>
+                        </label>
+                        <label className="flex items-center space-x-2 cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            checked={consultationSettings.types.call}
+                            onChange={() => setConsultationSettings(prev => ({ 
+                              ...prev, 
+                              types: { ...prev.types, call: !prev.types.call } 
+                            }))}
+                            className="w-4 h-4 text-teal-500 rounded" 
+                          />
+                          <span className="text-gray-700">Call</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Duration */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Duration</label>
+                      <select 
+                        value={consultationSettings.duration}
+                        onChange={(e) => setConsultationSettings(prev => ({ ...prev, duration: e.target.value }))}
+                        className="w-full border border-gray-300 p-2.5 rounded-lg outline-none focus:ring-1 focus:ring-teal-500 bg-white"
+                      >
+                        <option>15 mins</option>
+                        <option>30 mins</option>
+                        <option>45 mins</option>
+                        <option>1 hour</option>
+                      </select>
+                    </div>
+
+                    {/* Fees */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Consultation Fee</label>
+                      <div className="flex border border-gray-300 rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-teal-500">
+                        <span className="bg-gray-50 px-4 py-2.5 text-gray-500 border-r font-medium">RWF</span>
+                        <input 
+                          type="number" 
+                          value={consultationSettings.fees}
+                          onChange={(e) => setConsultationSettings(prev => ({ ...prev, fees: e.target.value }))}
+                          className="flex-1 p-2.5 outline-none w-full" 
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex justify-end gap-4 pt-6 border-t">
+                  <button className="px-6 py-2.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 font-medium transition">
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={() => setShowSaveConsultModal(true)}
+                    className="px-6 py-2.5 bg-teal-500 text-white rounded-lg hover:bg-teal-600 font-medium transition shadow-sm"
+                  >
+                    Save Settings
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* DOCUMENTS TAB */}
             {activeTab === 'documents' && (
               <div className="text-center py-12 text-gray-500">
@@ -429,6 +572,47 @@ export default function Profile() {
             <button
               onClick={() => setShowEditContact(false)}
               className="ml-auto bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Save Consultation Settings Modal */}
+      <Modal
+        isOpen={showSaveConsultModal}
+        onClose={() => setShowSaveConsultModal(false)}
+        title="Save Consultation Settings"
+        size="md"
+      >
+        <div className="space-y-4">
+          <p className="text-gray-700">Are you sure you want to save these online consultation settings?</p>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-sm text-blue-800">
+              <strong>Status:</strong> {consultationSettings.enabled ? 'Enabled' : 'Disabled'}
+            </p>
+            <p className="text-sm text-blue-800 mt-1">
+              <strong>Types:</strong> {Object.entries(consultationSettings.types).filter(([_, v]) => v).map(([k]) => k.charAt(0).toUpperCase() + k.slice(1)).join(', ') || 'None selected'}
+            </p>
+            <p className="text-sm text-blue-800 mt-1">
+              <strong>Duration:</strong> {consultationSettings.duration}
+            </p>
+            <p className="text-sm text-blue-800 mt-1">
+              <strong>Fee:</strong> {consultationSettings.fees} RWF
+            </p>
+          </div>
+          <div className="flex gap-2 pt-4 border-t">
+            <button
+              onClick={handleSaveConsultSettings}
+              disabled={savingConsult}
+              className="flex-1 bg-teal-500 hover:bg-teal-600 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors font-medium"
+            >
+              {savingConsult ? 'Saving...' : 'Confirm & Save'}
+            </button>
+            <button
+              onClick={() => setShowSaveConsultModal(false)}
+              className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg transition-colors"
             >
               Cancel
             </button>
