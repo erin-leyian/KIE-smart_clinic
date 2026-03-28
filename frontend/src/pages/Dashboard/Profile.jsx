@@ -11,6 +11,7 @@ export default function Profile() {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [userRole, setUserRole] = useState('patient');
   
   // Edit modals
   const [showEditPersonal, setShowEditPersonal] = useState(false);
@@ -38,16 +39,32 @@ export default function Profile() {
         
         await new Promise(resolve => setTimeout(resolve, 600));
         
-        if (!mockData.users || !Array.isArray(mockData.users) || mockData.users.length === 0) {
+        // Get logged-in user from localStorage
+        const storedUser = localStorage.getItem('user');
+        if (!storedUser) {
+          throw new Error('User profile not found. Please log in again.');
+        }
+        
+        const currentUser = JSON.parse(storedUser);
+        setUserRole(currentUser.role || 'patient');
+        
+        // Find the user in mockData by ID or name
+        const userData = mockData.users.find(u => u.id === currentUser.id || u.email === currentUser.email);
+        
+        if (!userData) {
           throw new Error('User profile not found. Please try again.');
         }
         if (!mockData.appointments || !Array.isArray(mockData.appointments)) {
           throw new Error('Consultation history not found.');
         }
         
-        const userData = mockData.users[0];
+        // Filter appointments for this user only
+        const userAppointments = mockData.appointments.filter(apt => 
+          apt.patientName === userData.name || apt.patientId === userData.id
+        );
+        
         setUser(userData);
-        setHistory(mockData.appointments);
+        setHistory(userAppointments);
         setEditPersonal({ dob: userData.dob, age: userData.age });
         setEditContact({ phone: userData.phone, email: userData.email, location: userData.location });
         setLoading(false);
@@ -68,16 +85,31 @@ export default function Profile() {
       
       await new Promise(resolve => setTimeout(resolve, 600));
       
-      if (!mockData.users || !Array.isArray(mockData.users) || mockData.users.length === 0) {
+      // Get logged-in user from localStorage
+      const storedUser = localStorage.getItem('user');
+      if (!storedUser) {
+        throw new Error('User profile not found. Please log in again.');
+      }
+      
+      const currentUser = JSON.parse(storedUser);
+      
+      // Find the user in mockData by ID or name
+      const userData = mockData.users.find(u => u.id === currentUser.id || u.email === currentUser.email);
+      
+      if (!userData) {
         throw new Error('User profile not found. Please try again.');
       }
       if (!mockData.appointments || !Array.isArray(mockData.appointments)) {
         throw new Error('Consultation history not found.');
       }
       
-      const userData = mockData.users[0];
+      // Filter appointments for this user only
+      const userAppointments = mockData.appointments.filter(apt => 
+        apt.patientName === userData.name || apt.patientId === userData.id
+      );
+      
       setUser(userData);
-      setHistory(mockData.appointments);
+      setHistory(userAppointments);
       setLoading(false);
     } catch (err) {
       const errorMessage = formatErrorMessage(err);
@@ -150,7 +182,7 @@ export default function Profile() {
 
           {/* Tabs */}
           <div className="flex gap-2 border-b bg-white rounded-t-lg">
-            {['general', 'history', 'consultations', 'documents', 'settings'].map(tab => (
+            {['general', 'history', ...(userRole === 'doctor' ? ['consultations', 'documents'] : []), 'settings'].map(tab => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}

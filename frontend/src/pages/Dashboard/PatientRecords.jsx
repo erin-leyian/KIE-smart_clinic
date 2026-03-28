@@ -19,7 +19,8 @@ export default function PatientRecords() {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [userRole, setUserRole] = useState('doctor'); // 'doctor' or 'patient'
+  const [currentUser, setCurrentUser] = useState(null);
+  const [userRole, setUserRole] = useState('patient');
   
   // Modal states
   const [detailModal, setDetailModal] = useState(false);
@@ -78,6 +79,16 @@ export default function PatientRecords() {
       setLoading(true);
       setError('');
       
+      // Get logged-in user from localStorage
+      const storedUser = localStorage.getItem('user');
+      if (!storedUser) {
+        throw new Error('User not logged in. Please log in first.');
+      }
+      
+      const user = JSON.parse(storedUser);
+      setCurrentUser(user);
+      setUserRole(user.role || 'patient');
+      
       // Simulate network request
       await new Promise(resolve => setTimeout(resolve, 500));
       
@@ -86,7 +97,30 @@ export default function PatientRecords() {
         throw new Error('No patient records found. Please try again.');
       }
       
-      setRecords(mockData.patientRecords);
+      // Filter records based on user role
+      let filteredRecords;
+      
+      if (user.role === 'patient') {
+        // Patients only see their own records
+        filteredRecords = mockData.patientRecords.filter(record => 
+          record.patientName === user.name
+        );
+      } else if (user.role === 'doctor') {
+        // Doctors see records of patients they consulted
+        filteredRecords = mockData.patientRecords.filter(record =>
+          record.doctorName === user.name
+        );
+      } else if (user.role === 'admin') {
+        // Admins see all records
+        filteredRecords = mockData.patientRecords;
+      } else {
+        // Default: show only own records
+        filteredRecords = mockData.patientRecords.filter(record =>
+          record.patientName === user.name
+        );
+      }
+      
+      setRecords(filteredRecords);
       setLoading(false);
     } catch (err) {
       const errorMessage = formatErrorMessage(err);
@@ -525,6 +559,17 @@ export default function PatientRecords() {
 
   return (
     <DashboardLayout title="Patient Records">
+      {/* Read-Only Badge for Patients */}
+      {userRole === 'patient' && (
+        <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center space-x-3">
+          <AlertCircle className="w-5 h-5 text-blue-600" />
+          <div>
+            <p className="text-blue-800 font-medium">Read-Only Access</p>
+            <p className="text-blue-700 text-sm">You can view your medical records but cannot edit or delete them. Contact your doctor to update your records.</p>
+          </div>
+        </div>
+      )}
+
       {/* Error Banner */}
       {error && (
         <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-start justify-between">
