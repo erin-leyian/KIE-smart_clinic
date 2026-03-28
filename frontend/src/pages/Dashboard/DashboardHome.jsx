@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, Clock, CreditCard, ChevronLeft, ChevronRight, Calendar as CalendarIcon, ChevronUp, CheckCircle, Star, Phone, MessageSquare, Video } from 'lucide-react';
+import { MapPin, Clock, CreditCard, ChevronLeft, ChevronRight, Calendar as CalendarIcon, ChevronUp, CheckCircle, Star, Phone, MessageSquare, Video, Stethoscope, AlertCircle } from 'lucide-react';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import Modal from '../../components/Modal';
 import { LoadingSpinner, DoctorCardSkeleton, BannerSkeleton } from '../../components/LoadingSkeletons';
@@ -56,7 +56,29 @@ export default function DashboardHome() {
   };
   
   // Use mock data
-  const recommendedDoctors = mockData.doctors || [];
+  const recommendedDoctors = mockData.doctors.map(doc => ({
+    ...doc,
+    icon: doc.specialty.includes('Cardiologist') ? '💓' : 
+          doc.specialty.includes('Pediatrician') ? '👶' :
+          doc.specialty.includes('Obstetrician') ? '🤰' :
+          doc.specialty.includes('Surgeon') ? '🔪' :
+          doc.specialty.includes('Dermatologist') ? '🔴' :
+          doc.specialty.includes('Psychiatrist') ? '🧠' :
+          doc.specialty.includes('Orthopedist') ? '🦴' :
+          doc.specialty.includes('Ophthalmologist') ? '👁️' :
+          doc.specialty.includes('Gastroenterologist') ? '🍽️' :
+          doc.specialty.includes('Neurologist') ? '🧠' :
+          doc.specialty.includes('ENT') ? '👂' :
+          doc.specialty.includes('Pharmacist') ? '💊' :
+          doc.specialty.includes('Pulmonologist') ? '💨' :
+          doc.specialty.includes('Radiologist') ? '🖼️' :
+          doc.specialty.includes('Anesthesiologist') ? '💉' :
+          doc.specialty.includes('Infectious') ? '🦠' :
+          doc.specialty.includes('Urologist') ? '🚽' :
+          doc.specialty.includes('Rheumatologist') ? '🦴' :
+          doc.specialty.includes('Hematologist') ? '🩸' :
+          '🩺'
+  })) || [];
   
   // Format appointments from mockData to match the design visually
   const upcomingAppointmentsList = (mockData.appointments || []).map((apt, index) => {
@@ -80,9 +102,12 @@ export default function DashboardHome() {
       specialty: "Cardiologist",
       distance: "0.5 km",
       address: "King Faisal Hospital, Kigali",
-      image: "https://randomuser.me/api/portraits/men/45.jpg",
       rating: 4.8,
-      hospital: "King Faisal Hospital"
+      hospital: "King Faisal Hospital",
+      fee: "35000 RWF",
+      experience: "12 years",
+      languages: ["Kinyarwanda", "English", "French"],
+      icon: "💓"
     },
     {
       id: 102,
@@ -90,9 +115,12 @@ export default function DashboardHome() {
       specialty: "Pediatrician",
       distance: "1.2 km",
       address: "Kigali Central Hospital",
-      image: "https://randomuser.me/api/portraits/women/45.jpg",
       rating: 4.7,
-      hospital: "Kigali Central Hospital"
+      hospital: "Kigali Central Hospital",
+      fee: "28000 RWF",
+      experience: "8 years",
+      languages: ["Kinyarwanda", "English"],
+      icon: "👶"
     },
     {
       id: 103,
@@ -100,9 +128,12 @@ export default function DashboardHome() {
       specialty: "Obstetrician",
       distance: "2.1 km",
       address: "Rwanda Medical Center",
-      image: "https://randomuser.me/api/portraits/women/68.jpg",
       rating: 4.8,
-      hospital: "Rwanda Medical Center"
+      hospital: "Rwanda Medical Center",
+      fee: "40000 RWF",
+      experience: "11 years",
+      languages: ["Kinyarwanda", "English", "French"],
+      icon: "🤰"
     }
   ];
 
@@ -180,7 +211,9 @@ export default function DashboardHome() {
                   className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm hover:shadow-md hover:border-teal-200 transition-all cursor-pointer group"
                 >
                   <div className="flex items-center space-x-3 mb-4">
-                    <img src={doctor.image} alt={doctor.name} className="w-16 h-12 rounded-lg object-cover group-hover:brightness-110 transition" />
+                    <div className="w-16 h-12 rounded-lg bg-gradient-to-br from-teal-100 to-blue-100 flex items-center justify-center text-3xl group-hover:scale-110 transition">
+                      {doctor.icon}
+                    </div>
                     <div>
                       <h4 className="font-bold text-gray-800 text-sm group-hover:text-teal-600 transition">{doctor.name}</h4>
                       <p className="text-xs text-gray-500">{doctor.specialty}</p>
@@ -216,7 +249,9 @@ export default function DashboardHome() {
                   className="bg-white border rounded-2xl p-5 text-left flex flex-col hover:border-teal-100 hover:shadow-md transition-all group"
                 >
                   <div className="flex items-center space-x-3 mb-4">
-                    <img src={doctor.image} alt={doctor.name} className="w-14 h-14 rounded-full object-cover border border-gray-100 group-hover:scale-110 transition-transform" />
+                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-teal-100 to-blue-100 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+                      {doctor.icon || "🩺"}
+                    </div>
                     <div className="flex-1">
                       <h4 className="font-bold text-gray-800 group-hover:text-teal-600 transition cursor-pointer" onClick={() => openDoctorDetails(doctor)}>
                         {doctor.name}
@@ -244,7 +279,7 @@ export default function DashboardHome() {
                     <div className="flex items-center space-x-1.5">
                       <CreditCard className="w-4 h-4 text-gray-400" />
                       <div>
-                        <div className="font-medium text-gray-700">{doctor.fee.replace(' RWF', '')}</div>
+                        <div className="font-medium text-gray-700">{doctor.fee.replace(' RWF', '').replace(/,/g, '')}</div>
                         <div className="text-[10px] text-gray-400">RWF</div>
                       </div>
                     </div>
@@ -342,30 +377,47 @@ export default function DashboardHome() {
         onClose={() => {
           setBookingModal(false);
           setBookingStep(1);
+          setSelectedDate('');
+          setSelectedTime('');
+          setConsultationType('video');
         }}
-        title={bookingSuccess ? 'Appointment Booked!' : `Book with ${selectedDoctorForBooking?.name}`}
+        title={bookingSuccess ? 'Booking Confirmed! ✓' : `Book with ${selectedDoctorForBooking?.name}`}
         type={bookingSuccess ? 'success' : 'booking'}
         size="lg"
+        closeButton={!bookingSuccess}
       >
         {bookingSuccess ? (
           <div className="text-center py-8">
-            <p className="text-gray-600 mb-4">Your appointment has been confirmed!</p>
-            <p className="text-sm text-gray-500">You will receive a confirmation SMS and email shortly.</p>
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <CheckCircle className="w-8 h-8 text-green-600" />
+            </div>
+            <p className="text-gray-800 font-bold mb-2">Appointment Confirmed!</p>
+            <p className="text-gray-600 mb-4">Your appointment with {selectedDoctorForBooking?.name} has been booked.</p>
+            <div className="bg-blue-50 p-4 rounded-lg mb-4 text-sm text-gray-700">
+              <p><strong>Date:</strong> {selectedDate}</p>
+              <p><strong>Time:</strong> {selectedTime}</p>
+              <p><strong>Type:</strong> {consultationType === 'video' ? 'Video Call' : consultationType === 'phone' ? 'Phone Call' : 'Text Message'}</p>
+              <p><strong>Fee:</strong> {selectedDoctorForBooking?.fee}</p>
+            </div>
+            <p className="text-xs text-gray-500">You will receive a confirmation SMS and email shortly.</p>
           </div>
         ) : (
           <div className="space-y-6">
             {/* Step Indicator */}
             <div className="flex justify-between items-center mb-6">
-              <div className={`flex items-center justify-center w-10 h-10 rounded-full ${bookingStep >= 1 ? 'bg-teal-500 text-white' : 'bg-gray-200 text-gray-500'}`}>1</div>
+              <div className={`flex items-center justify-center w-10 h-10 rounded-full font-bold ${bookingStep >= 1 ? 'bg-teal-500 text-white' : 'bg-gray-200 text-gray-500'}`}>1</div>
               <div className={`flex-1 h-1 mx-2 ${bookingStep >= 2 ? 'bg-teal-500' : 'bg-gray-200'}`}></div>
-              <div className={`flex items-center justify-center w-10 h-10 rounded-full ${bookingStep >= 2 ? 'bg-teal-500 text-white' : 'bg-gray-200 text-gray-500'}`}>2</div>
+              <div className={`flex items-center justify-center w-10 h-10 rounded-full font-bold ${bookingStep >= 2 ? 'bg-teal-500 text-white' : 'bg-gray-200 text-gray-500'}`}>2</div>
               <div className={`flex-1 h-1 mx-2 ${bookingStep >= 3 ? 'bg-teal-500' : 'bg-gray-200'}`}></div>
-              <div className={`flex items-center justify-center w-10 h-10 rounded-full ${bookingStep >= 3 ? 'bg-teal-500 text-white' : 'bg-gray-200 text-gray-500'}`}>3</div>
+              <div className={`flex items-center justify-center w-10 h-10 rounded-full font-bold ${bookingStep >= 3 ? 'bg-teal-500 text-white' : 'bg-gray-200 text-gray-500'}`}>3</div>
+              <div className={`flex-1 h-1 mx-2 ${bookingStep >= 4 ? 'bg-teal-500' : 'bg-gray-200'}`}></div>
+              <div className={`flex items-center justify-center w-10 h-10 rounded-full font-bold ${bookingStep >= 4 ? 'bg-teal-500 text-white' : 'bg-gray-200 text-gray-500'}`}>4</div>
             </div>
 
             {/* Step 1: Select Date & Time */}
             {bookingStep === 1 && (
               <div className="space-y-4">
+                <h3 className="font-bold text-gray-800 mb-4">Step 1: Select Date & Time</h3>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Select Date</label>
                   <input 
@@ -399,7 +451,7 @@ export default function DashboardHome() {
             {/* Step 2: Select Consultation Type */}
             {bookingStep === 2 && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-4">Consultation Type</label>
+                <h3 className="font-bold text-gray-800 mb-4">Step 2: Consultation Method</h3>
                 <div className="space-y-3">
                   {[
                     { value: 'video', label: 'Video Call', icon: Video },
@@ -426,27 +478,102 @@ export default function DashboardHome() {
               </div>
             )}
 
-            {/* Step 3: Review & Confirm */}
+            {/* Step 3: Review */}
             {bookingStep === 3 && (
-              <div className="space-y-4 bg-gray-50 p-4 rounded-lg">
-                <div>
-                  <p className="text-sm text-gray-600">Doctor</p>
-                  <p className="font-bold text-gray-900">{selectedDoctorForBooking?.name}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Date & Time</p>
-                  <p className="font-bold text-gray-900">{selectedDate} at {selectedTime}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Type</p>
-                  <p className="font-bold text-gray-900 capitalize">{consultationType}</p>
-                </div>
-                <div className="border-t pt-4">
-                  <p className="text-sm text-gray-600">Consultation Fee</p>
-                  <p className="font-bold text-lg text-teal-600">{selectedDoctorForBooking?.fee}</p>
+              <div>
+                <h3 className="font-bold text-gray-800 mb-4">Step 3: Review Booking</h3>
+                <div className="space-y-4 bg-gray-50 p-4 rounded-lg">
+                  <div className="flex items-start space-x-3 pb-4 border-b">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-teal-100 to-blue-100 flex items-center justify-center text-xl flex-shrink-0">
+                      {selectedDoctorForBooking?.icon || "🩺"}
+                    </div>
+                    <div>
+                      <p className="font-bold text-gray-900">{selectedDoctorForBooking?.name}</p>
+                      <p className="text-sm text-gray-600">{selectedDoctorForBooking?.specialty}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Date & Time</p>
+                    <p className="font-bold text-gray-900">{selectedDate} at {selectedTime}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Consultation Method</p>
+                    <p className="font-bold text-gray-900 capitalize">{consultationType === 'video' ? 'Video Call' : consultationType === 'phone' ? 'Phone Call' : 'Text Message'}</p>
+                  </div>
+                  <div className="border-t pt-4">
+                    <p className="text-sm text-gray-600">Consultation Fee</p>
+                    <p className="font-bold text-lg text-teal-600">{selectedDoctorForBooking?.fee}</p>
+                  </div>
                 </div>
               </div>
             )}
+
+            {/* Step 4: Payment */}
+            {bookingStep === 4 && (
+              <div>
+                <h3 className="font-bold text-gray-800 mb-4">Step 4: Payment</h3>
+                <div className="space-y-3">
+                  <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg flex items-start space-x-3">
+                    <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-medium text-blue-900 text-sm">Payment Method</p>
+                      <p className="text-xs text-blue-700 mt-1">You can pay using MTN Mobile Money, Airtel Money, or Bank Transfer</p>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    {['MTN Mobile Money', 'Airtel Money', 'Bank Transfer', 'Clinic Payment'].map(method => (
+                      <button
+                        key={method}
+                        onClick={() => {
+                          setBookingSuccess(true);
+                          setBookedDoctors(prev => ({
+                            ...prev,
+                            [selectedDoctorForBooking?.id]: true
+                          }));
+                          setTimeout(() => {
+                            setBookingModal(false);
+                            setBookingSuccess(false);
+                            setBookingStep(1);
+                            setSelectedDate('');
+                            setSelectedTime('');
+                            setConsultationType('video');
+                          }, 2500);
+                        }}
+                        className="w-full p-3 border rounded-lg text-left font-medium text-gray-800 hover:bg-teal-50 hover:border-teal-500 transition"
+                      >
+                        {method}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex justify-between gap-3 pt-4">
+              <button
+                onClick={() => setBookingStep(Math.max(1, bookingStep - 1))}
+                disabled={bookingStep === 1}
+                className="px-6 py-2 border rounded-lg text-gray-600 hover:bg-gray-50 font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Back
+              </button>
+              <button
+                onClick={() => {
+                  if (bookingStep < 4) {
+                    setBookingStep(bookingStep + 1);
+                  }
+                }}
+                disabled={
+                  (bookingStep === 1 && (!selectedDate || !selectedTime)) ||
+                  (bookingStep === 2 && !consultationType) ||
+                  bookingStep === 4
+                }
+                className="px-6 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {bookingStep === 4 ? 'Select Payment Method' : bookingStep === 3 ? 'Proceed to Payment' : 'Next'}
+              </button>
+            </div>
           </div>
         )}
       </Modal>
@@ -457,17 +584,31 @@ export default function DashboardHome() {
         onClose={() => setDoctorDetailsModal(false)}
         title={selectedDoctorDetails?.name}
         size="lg"
+        actions={[
+          {
+            label: 'Book Appointment',
+            onClick: () => {
+              setDoctorDetailsModal(false);
+              handleBookAppointment(selectedDoctorDetails);
+            },
+            variant: 'primary'
+          },
+          {
+            label: 'Close',
+            onClick: () => setDoctorDetailsModal(false),
+            variant: 'secondary'
+          }
+        ]}
       >
         {selectedDoctorDetails && (
           <div className="space-y-6">
-            <div className="flex items-center space-x-4">
-              <img 
-                src={selectedDoctorDetails.image} 
-                alt={selectedDoctorDetails.name}
-                className="w-20 h-20 rounded-full object-cover"
-              />
-              <div>
-                <h3 className="text-lg font-bold">{selectedDoctorDetails.specialty}</h3>
+            <div className="flex items-start space-x-4 pb-4 border-b">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-teal-100 to-blue-100 flex items-center justify-center text-4xl flex-shrink-0">
+                {selectedDoctorDetails.icon || "🩺"}
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-gray-900">{selectedDoctorDetails.name}</h3>
+                <p className="text-teal-600 font-medium">{selectedDoctorDetails.specialty}</p>
                 <div className="flex items-center mt-2">
                   <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
                   <span className="ml-1 text-sm text-gray-600">{selectedDoctorDetails.rating} • {selectedDoctorDetails.hospital}</span>
@@ -477,42 +618,44 @@ export default function DashboardHome() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-blue-50 p-4 rounded-lg">
-                <p className="text-xs text-gray-600">Experience</p>
-                <p className="font-bold text-gray-900">{selectedDoctorDetails.experience}</p>
+                <p className="text-xs text-gray-600 font-medium">Experience</p>
+                <p className="font-bold text-gray-900 mt-1">{selectedDoctorDetails.experience}</p>
               </div>
               <div className="bg-green-50 p-4 rounded-lg">
-                <p className="text-xs text-gray-600">Consultation Fee</p>
-                <p className="font-bold text-gray-900">{selectedDoctorDetails.fee}</p>
+                <p className="text-xs text-gray-600 font-medium">Consultation Fee</p>
+                <p className="font-bold text-gray-900 mt-1">{selectedDoctorDetails.fee}</p>
               </div>
             </div>
 
             <div>
-              <h4 className="font-bold text-gray-900 mb-2">Languages</h4>
+              <h4 className="font-bold text-gray-900 mb-3">Key Information</h4>
+              <div className="space-y-2 text-sm">
+                <div><span className="text-gray-600">Hospital:</span> <span className="font-medium text-gray-900">{selectedDoctorDetails.hospital}</span></div>
+                <div><span className="text-gray-600">Hours:</span> <span className="font-medium text-gray-900">{selectedDoctorDetails.hours}</span></div>
+                <div><span className="text-gray-600">City:</span> <span className="font-medium text-gray-900">{selectedDoctorDetails.city || 'Kigali'}</span></div>
+              </div>
+            </div>
+
+            <div>
+              <h4 className="font-bold text-gray-900 mb-3">Languages Spoken</h4>
               <div className="flex flex-wrap gap-2">
                 {selectedDoctorDetails.languages?.map(lang => (
-                  <span key={lang} className="px-3 py-1 bg-teal-50 text-teal-600 text-sm rounded-full">
+                  <span key={lang} className="px-3 py-1 bg-teal-50 text-teal-600 text-sm rounded-full font-medium">
                     {lang}
                   </span>
                 ))}
               </div>
             </div>
 
-            <div>
-              <h4 className="font-bold text-gray-900 mb-2">Availability</h4>
-              <p className="text-sm text-gray-600">{selectedDoctorDetails.hours}</p>
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h4 className="font-bold text-gray-900 mb-2">About this Doctor</h4>
+              <p className="text-sm text-gray-600">
+                Dr. {selectedDoctorDetails.name.split(' ').pop()} is a highly qualified {selectedDoctorDetails.specialty.toLowerCase()} with {selectedDoctorDetails.experience} of professional experience. 
+                Available for consultations via video call, phone, or in-person appointments.
+              </p>
             </div>
           </div>
         )}
-        actions={[
-          {
-            label: 'Book Appointment',
-            onClick: () => {
-              setDoctorDetailsModal(false);
-              handleBookAppointment(selectedDoctorDetails);
-            },
-            variant: 'primary'
-          }
-        ]}
       </Modal>
     </DashboardLayout>
   );

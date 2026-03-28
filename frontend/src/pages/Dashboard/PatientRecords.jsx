@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Modal from '../../components/Modal';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import { Clock, User } from 'lucide-react';
 import mockData from '../../data/mockData.json';
@@ -7,6 +8,7 @@ export default function PatientRecords() {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [selectedRecord, setSelectedRecord] = useState(null);
 
   const fetchRecords = async () => {
     try {
@@ -37,6 +39,31 @@ export default function PatientRecords() {
 
   return (
     <DashboardLayout title="Patient Records">
+      {/* Record Detail Modal */}
+      <Modal
+        isOpen={!!selectedRecord}
+        onClose={() => setSelectedRecord(null)}
+        title={selectedRecord?.patient}
+        size="md"
+        actions={[
+          { label: 'Close', onClick: () => setSelectedRecord(null), variant: 'secondary' }
+        ]}
+      >
+        {selectedRecord ? (
+          <div className="space-y-3">
+            <p className="text-sm text-gray-600">Issue: <span className="font-medium text-gray-800">{selectedRecord.issue}</span></p>
+            <p className="text-sm text-gray-600">Time: <span className="font-medium text-gray-800">{selectedRecord.time}</span></p>
+            {selectedRecord.hasDocs ? (
+              <div>
+                <p className="text-sm text-gray-600">Documents available.</p>
+                <a href="#" className="text-teal-500 hover:underline">Open documents</a>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400">No documents attached.</p>
+            )}
+          </div>
+        ) : null}
+      </Modal>
       {/* Tabs / Filters */}
       <div className="flex justify-between items-center mb-6">
         <div className="flex bg-white rounded-lg p-1 border shadow-sm w-96">
@@ -82,7 +109,7 @@ export default function PatientRecords() {
                 <div className="space-y-2">
                   <p className="text-gray-600">Issue: {record.issue}</p>
                   {record.hasDocs ? (
-                    <a href="#" className="text-blue-500 hover:underline">View Documents</a>
+                    <button onClick={() => setSelectedRecord(record)} className="text-teal-500 hover:underline">View Documents</button>
                   ) : (
                     <p className="text-gray-400">-</p>
                   )}
@@ -90,7 +117,7 @@ export default function PatientRecords() {
               </div>
 
               <div className="px-6">
-                <button className="border px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50">
+                <button onClick={() => setSelectedRecord(record)} className="border px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50">
                   Edit ∨
                 </button>
               </div>

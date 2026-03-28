@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import Modal from '../../components/Modal';
 import DashboardLayout from "../../components/Layout/DashboardLayout";
 import { Edit2, FileText } from "lucide-react";
 import mockData from "../../data/mockData.json";
@@ -7,6 +8,8 @@ export default function Profile() {
   const [activeTab, setActiveTab] = useState("general");
   const [user, setUser] = useState(null);
   const [history, setHistory] = useState([]);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editValues, setEditValues] = useState({ name: '', phone: '', email: '' });
 
   useEffect(() => {
     // Simulated fetch
@@ -73,6 +76,9 @@ export default function Profile() {
                 <button className="flex items-center gap-2 border px-4 py-2 text-sm rounded-lg hover:bg-gray-50">
                   <span>Edit</span> <Edit2 size={14} />
                 </button>
+                <button onClick={() => { setShowEditModal(true); setEditValues({ name: user?.name || '', phone: user?.phone || '', email: user?.email || '' }); }} className="ml-3 flex items-center gap-2 border px-4 py-2 text-sm rounded-lg hover:bg-gray-50">
+                  <span>Edit Profile</span>
+                </button>
               </div>
 
               <div className="pt-4">
@@ -81,6 +87,9 @@ export default function Profile() {
                   <button className="flex items-center gap-2 border px-4 py-2 text-sm rounded-lg hover:bg-gray-50">
                     <span>Edit</span> <Edit2 size={14} />
                   </button>
+                    <button onClick={() => { setShowEditModal(true); setEditValues({ name: user?.name || '', phone: user?.phone || '', email: user?.email || '' }); }} className="ml-3 flex items-center gap-2 border px-4 py-2 text-sm rounded-lg hover:bg-gray-50">
+                      <span>Edit</span>
+                    </button>
                 </div>
                 
                 <div className="grid grid-cols-3 gap-6 text-sm">
@@ -176,6 +185,35 @@ export default function Profile() {
           )}
         </div>
       </div>
+      {/* Edit Profile Modal */}
+      <Modal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        title="Edit Profile"
+        size="md"
+        actions={[
+          { label: 'Cancel', onClick: () => setShowEditModal(false), variant: 'secondary' },
+          { label: 'Save', onClick: () => {
+              setUser(prev => ({ ...prev, name: editValues.name, phone: editValues.phone, email: editValues.email }));
+              setShowEditModal(false);
+            }, variant: 'primary' }
+        ]}
+      >
+        <div className="space-y-3">
+          <div>
+            <label className="text-sm text-gray-600 block mb-1">Name</label>
+            <input value={editValues.name} onChange={e => setEditValues(prev => ({ ...prev, name: e.target.value }))} className="w-full border p-2 rounded-md" />
+          </div>
+          <div>
+            <label className="text-sm text-gray-600 block mb-1">Phone</label>
+            <input value={editValues.phone} onChange={e => setEditValues(prev => ({ ...prev, phone: e.target.value }))} className="w-full border p-2 rounded-md" />
+          </div>
+          <div>
+            <label className="text-sm text-gray-600 block mb-1">Email</label>
+            <input value={editValues.email} onChange={e => setEditValues(prev => ({ ...prev, email: e.target.value }))} className="w-full border p-2 rounded-md" />
+          </div>
+        </div>
+      </Modal>
     </DashboardLayout>
   );
 }

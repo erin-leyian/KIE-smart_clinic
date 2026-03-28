@@ -1,7 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
+import Modal from '../../components/Modal';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 
 export default function OnlineConsult() {
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [saving, setSaving] = useState(false);
   return (
     <DashboardLayout title="Online Consult">
       <div className="bg-white border rounded-xl shadow-sm">
@@ -74,10 +77,32 @@ export default function OnlineConsult() {
           <button className="px-8 py-2.5 border rounded-lg text-gray-600 hover:bg-gray-100 font-medium transition">
             Cancel
           </button>
-          <button className="px-8 py-2.5 bg-teal-500 text-white rounded-lg hover:bg-teal-600 font-medium transition shadow-sm">
+          <button onClick={() => setShowSaveModal(true)} className="px-8 py-2.5 bg-teal-500 text-white rounded-lg hover:bg-teal-600 font-medium transition shadow-sm">
             Save
           </button>
         </div>
+
+        {/* Save Confirmation Modal */}
+        <Modal
+          isOpen={showSaveModal}
+          onClose={() => setShowSaveModal(false)}
+          title="Save Consultation Settings"
+          size="md"
+          actions={[
+            { label: 'Cancel', onClick: () => setShowSaveModal(false), variant: 'secondary' },
+            { label: saving ? 'Saving...' : 'Confirm', onClick: async () => {
+                setSaving(true);
+                // simulate save
+                await new Promise(r => setTimeout(r, 700));
+                setSaving(false);
+                setShowSaveModal(false);
+              }, variant: 'primary' }
+          ]}
+        >
+          <div className="py-2">
+            <p className="text-sm text-gray-600">Save your online consultation availability and fees. This will update how patients book with you.</p>
+          </div>
+        </Modal>
       </div>
     </DashboardLayout>
   );
