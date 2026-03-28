@@ -1,38 +1,16 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Heart, MapPin } from "lucide-react";
-
-const doctors = [
-  {
-    id: 1,
-    name: "Dr. Marie Uwase",
-    spec: "Pediatric",
-    exp: "12 years experience",
-    days: "Tue, Thu",
-    time: "10:00 AM-01:00 PM",
-    fee: "15,000 RWF",
-  },
-  {
-    id: 2,
-    name: "Dr. Jean Nshimiyimana",
-    spec: "Surgical",
-    exp: "10 years experience",
-    days: "Tue, Thu",
-    time: "10:00 AM-01:00 PM",
-    fee: "25,000 RWF",
-  },
-  {
-    id: 3,
-    name: "Dr. Divine Mutoni",
-    spec: "Gastroenterology",
-    exp: "7 years experience",
-    days: "Tue, Thu",
-    time: "10:00 AM-01:00 PM",
-    fee: "10,000 RWF",
-  },
-];
+import mockData from "../../data/mockData.json";
 
 export default function Home() {
+  const [doctors, setDoctors] = useState([]);
+
+  useEffect(() => {
+    // using mockData
+    setDoctors(mockData.doctors);
+  }, []);
+
   return (
     <div className="min-h-screen bg-white">
       {/* Navbar */}
@@ -114,23 +92,29 @@ export default function Home() {
                 className="border border-gray-100 rounded-xl p-6 shadow-sm hover:shadow-md transition"
               >
                 <div className="flex items-center space-x-4 mb-4">
-                  <div className="w-16 h-16 rounded-full bg-gray-200"></div>
+                  <img
+                    src={doc.image}
+                    alt={doc.name}
+                    className="w-16 h-16 rounded-full bg-gray-200"
+                  />
                   <div>
                     <h4 className="font-bold text-lg text-gray-800">
                       {doc.name}
                     </h4>
                     <p className="text-sm text-gray-500">
-                      {doc.spec} | {doc.exp}
+                      {doc.specialty} | {doc.experience}
                     </p>
                     <span className="inline-block mt-1 px-2 py-1 text-xs text-teal-600 bg-teal-50 rounded-full">
-                      {doc.spec}
+                      {doc.specialty}
                     </span>
                   </div>
                 </div>
                 <div className="flex justify-between items-center mb-6 text-sm text-gray-600 border-t pt-4">
                   <div>
-                    <p className="font-semibold text-gray-800">{doc.days}</p>
-                    <p>{doc.time}</p>
+                    <p className="font-semibold text-gray-800">
+                      {doc.hours.split(" ")[0]} {doc.hours.split(" ")[1]}
+                    </p>
+                    <p>{doc.hours.split(" ").slice(2).join(" ")}</p>
                   </div>
                   <div className="text-right">
                     <p className="font-semibold text-gray-800">{doc.fee}</p>
