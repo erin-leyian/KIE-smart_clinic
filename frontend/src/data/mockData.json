@@ -260,7 +260,23 @@
       "treatment": "Continued Lisinopril 10mg daily",
       "documents": true,
       "status": "Past",
-      "notes": "Blood pressure stable at 138/88. Continue current medication."
+      "notes": "Blood pressure stable at 138/88. Continue current medication.",
+      "consultations": [
+        {
+          "id": "c1",
+          "date": "2026-03-20",
+          "time": "09:00",
+          "doctorName": "Dr. Jean Mukasine",
+          "notes": "Patient presents with stable blood pressure readings. Continue current management.",
+          "suggestedMedications": [
+            { "name": "Lisinopril", "dosage": "10mg", "frequency": "Once daily", "duration": "Ongoing" }
+          ]
+        }
+      ],
+      "allNotes": "Patient compliant with medication regimen. No side effects reported.",
+      "medications": [
+        { "name": "Lisinopril", "dosage": "10mg", "frequency": "Once daily", "status": "Active" }
+      ]
     },
     {
       "id": "2",
@@ -274,7 +290,23 @@
       "treatment": "Paracetamol 15mg/kg, hydration",
       "documents": true,
       "status": "Past",
-      "notes": "Child fever resolved after medication. Monitor for 48 hours."
+      "notes": "Child fever resolved after medication. Monitor for 48 hours.",
+      "consultations": [
+        {
+          "id": "c1",
+          "date": "2026-03-21",
+          "time": "10:30",
+          "doctorName": "Dr. Marie Ikirezi",
+          "notes": "Child presenting with fever of 38.5°C. No other symptoms observed.",
+          "suggestedMedications": [
+            { "name": "Paracetamol", "dosage": "15mg/kg", "frequency": "Every 6 hours", "duration": "3 days" }
+          ]
+        }
+      ],
+      "allNotes": "Parents instructed on fever management and hydration. Follow-up if fever persists.",
+      "medications": [
+        { "name": "Paracetamol", "dosage": "15mg/kg", "frequency": "Every 6 hours", "status": "Active" }
+      ]
     },
     {
       "id": "3",
@@ -288,7 +320,23 @@
       "treatment": "Enalapril 5mg daily, low sodium diet",
       "documents": true,
       "status": "Past",
-      "notes": "EKG shows mild changes. Refer to cardiology follow-up."
+      "notes": "EKG shows mild changes. Refer to cardiology follow-up.",
+      "consultations": [
+        {
+          "id": "c1",
+          "date": "2026-03-22",
+          "time": "02:00",
+          "doctorName": "Dr. Sylvain Uwizeye",
+          "notes": "Patient presenting for cardiac assessment. EKG performed and shows mild LVH. Recommend low sodium diet.",
+          "suggestedMedications": [
+            { "name": "Enalapril", "dosage": "5mg", "frequency": "Once daily", "duration": "Ongoing" }
+          ]
+        }
+      ],
+      "allNotes": "Patient educated on dietary modifications. Scheduled for follow-up echocardiogram in 3 months.",
+      "medications": [
+        { "name": "Enalapril", "dosage": "5mg", "frequency": "Once daily", "status": "Active" }
+      ]
     },
     {
       "id": "4",
@@ -302,7 +350,23 @@
       "treatment": "Prenatal vitamins, blood tests ordered",
       "documents": true,
       "status": "Past",
-      "notes": "Normal pregnancy progression. Schedule ultrasound."
+      "notes": "Normal pregnancy progression. Schedule ultrasound.",
+      "consultations": [
+        {
+          "id": "c1",
+          "date": "2026-03-23",
+          "time": "08:00",
+          "doctorName": "Dr. Grace Mukantabana",
+          "notes": "Patient at 28 weeks of pregnancy. Ultrasound shows normal fetal development. All vital signs stable.",
+          "suggestedMedications": [
+            { "name": "Prenatal Vitamins", "dosage": "1 tablet", "frequency": "Once daily", "duration": "Until delivery" }
+          ]
+        }
+      ],
+      "allNotes": "Patient counseled on nutrition and exercise. Next appointment in 2 weeks.",
+      "medications": [
+        { "name": "Prenatal Vitamins", "dosage": "1 tablet", "frequency": "Once daily", "status": "Active" }
+      ]
     },
     {
       "id": "5",
@@ -316,7 +380,25 @@
       "treatment": "Wound care, antibiotics, pain management",
       "documents": true,
       "status": "Past",
-      "notes": "Wound healing well. Continue prescribed medications."
+      "notes": "Wound healing well. Continue prescribed medications.",
+      "consultations": [
+        {
+          "id": "c1",
+          "date": "2026-03-24",
+          "time": "03:00",
+          "doctorName": "Dr. Paul Hakizimana",
+          "notes": "Post-operative day 5. Wound inspection shows good healing. No signs of infection.",
+          "suggestedMedications": [
+            { "name": "Amoxicillin", "dosage": "500mg", "frequency": "Three times daily", "duration": "5 days" },
+            { "name": "Paracetamol", "dosage": "500mg", "frequency": "Every 6 hours", "duration": "As needed" }
+          ]
+        }
+      ],
+      "allNotes": "Patient advised to keep wound clean and dry. Return for suture removal in 5 days.",
+      "medications": [
+        { "name": "Amoxicillin", "dosage": "500mg", "frequency": "Three times daily", "status": "Active" },
+        { "name": "Paracetamol", "dosage": "500mg", "frequency": "Every 6 hours", "status": "Active" }
+      ]
     },
     {
       "id": "6",
@@ -330,7 +412,23 @@
       "treatment": "Topical antifungal cream twice daily",
       "documents": false,
       "status": "Past",
-      "notes": "Apply lotion for 3 weeks. Avoid scratching."
+      "notes": "Apply lotion for 3 weeks. Avoid scratching.",
+      "consultations": [
+        {
+          "id": "c1",
+          "date": "2026-03-25",
+          "time": "11:00",
+          "doctorName": "Dr. Innocent Ndahiro",
+          "notes": "Patient presents with Tinea corporis on trunk and limbs. Culture taken for confirmation.",
+          "suggestedMedications": [
+            { "name": "Clotrimazole Cream", "dosage": "1%", "frequency": "Twice daily", "duration": "3 weeks" }
+          ]
+        }
+      ],
+      "allNotes": "Patient educated on hygiene and avoiding moist conditions. Review in 2 weeks.",
+      "medications": [
+        { "name": "Clotrimazole Cream", "dosage": "1%", "frequency": "Twice daily", "status": "Active" }
+      ]
     },
     {
       "id": "7",
@@ -344,7 +442,23 @@
       "treatment": "Omeprazole 20mg daily, avoid spicy food",
       "documents": true,
       "status": "Past",
-      "notes": "Better adherence to medication needed. Repeat endoscopy in 6 weeks."
+      "notes": "Better adherence to medication needed. Repeat endoscopy in 6 weeks.",
+      "consultations": [
+        {
+          "id": "c1",
+          "date": "2026-03-26",
+          "time": "01:30",
+          "doctorName": "Dr. Denis Murwanashyaka",
+          "notes": "Patient with peptic ulcer disease. Previous endoscopy showed duodenal ulcer. Patient reports improvement.",
+          "suggestedMedications": [
+            { "name": "Omeprazole", "dosage": "20mg", "frequency": "Once daily", "duration": "6 weeks" }
+          ]
+        }
+      ],
+      "allNotes": "Patient counseled on diet and medication compliance. Avoid NSAIDs and spicy foods.",
+      "medications": [
+        { "name": "Omeprazole", "dosage": "20mg", "frequency": "Once daily", "status": "Active" }
+      ]
     },
     {
       "id": "8",
@@ -358,7 +472,23 @@
       "treatment": "Propranolol 40mg daily, lifestyle modifications",
       "documents": false,
       "status": "Past",
-      "notes": "Consider MRI if headaches persist. Track triggers."
+      "notes": "Consider MRI if headaches persist. Track triggers.",
+      "consultations": [
+        {
+          "id": "c1",
+          "date": "2026-03-27",
+          "time": "09:15",
+          "doctorName": "Dr. Florence Umutoniwase",
+          "notes": "Patient with chronic migraine headaches. Currently experiencing 3-4 episodes per week. No visual aura noted.",
+          "suggestedMedications": [
+            { "name": "Propranolol", "dosage": "40mg", "frequency": "Once daily", "duration": "Ongoing" }
+          ]
+        }
+      ],
+      "allNotes": "Patient advised to maintain headache diary and identify triggers. MRI may be considered if symptoms worsen.",
+      "medications": [
+        { "name": "Propranolol", "dosage": "40mg", "frequency": "Once daily", "status": "Active" }
+      ]
     },
     {
       "id": "9",
@@ -372,7 +502,25 @@
       "treatment": "Nasal decongestant, saline rinse, antibiotics",
       "documents": true,
       "status": "Today",
-      "notes": "Consider CT scan if symptoms worsen."
+      "notes": "Consider CT scan if symptoms worsen.",
+      "consultations": [
+        {
+          "id": "c1",
+          "date": "2026-03-28",
+          "time": "04:00",
+          "doctorName": "Dr. Clement Karekezi",
+          "notes": "Patient with chronic sinusitis lasting more than 12 weeks. Nasal endoscopy reveals mucosal edema.",
+          "suggestedMedications": [
+            { "name": "Mometasone Nasal Spray", "dosage": "50mcg", "frequency": "Twice daily", "duration": "4 weeks" },
+            { "name": "Amoxicillin-Clavulanate", "dosage": "875mg", "frequency": "Twice daily", "duration": "10 days" }
+          ]
+        }
+      ],
+      "allNotes": "Patient advised to use saline irrigations twice daily. Follow-up in 4 weeks.",
+      "medications": [
+        { "name": "Mometasone Nasal Spray", "dosage": "50mcg", "frequency": "Twice daily", "status": "Active" },
+        { "name": "Amoxicillin-Clavulanate", "dosage": "875mg", "frequency": "Twice daily", "status": "Active" }
+      ]
     },
     {
       "id": "10",
@@ -386,7 +534,19 @@
       "treatment": "New glasses prescription issued",
       "documents": false,
       "status": "Upcoming",
-      "notes": "Vision corrected to 20/20 with glasses. Annual check."
+      "notes": "Vision corrected to 20/20 with glasses. Annual check.",
+      "consultations": [
+        {
+          "id": "c1",
+          "date": "2026-03-29",
+          "time": "10:00",
+          "doctorName": "Dr. Hortense Nzamwita",
+          "notes": "Patient with progressive myopia. Refractive error increased by 0.5D in left eye. New prescription issued.",
+          "suggestedMedications": []
+        }
+      ],
+      "allNotes": "Patient counseled on eye care and UV protection. Next annual examination scheduled.",
+      "medications": []
     }
   ],
   "appointments": [

@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../../components/Modal';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
-import { Clock, User, AlertCircle, Edit2, Save, X, Plus, FileText } from 'lucide-react';
+import { Clock, User, AlertCircle, Edit2, Save, X, Plus, FileText, Download, MessageSquare, Pill, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import mockData from '../../data/mockData.json';
 import { formatErrorMessage } from '../../utils/errorHandler';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 // Status colors and badge styling
 const STATUS_CONFIG = {
@@ -11,6 +13,8 @@ const STATUS_CONFIG = {
   'Today': { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-300' },
   'Upcoming': { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-300' }
 };
+
+const CLINIC_LOGO = 'https://via.placeholder.com/150x50?text=Smart+Clinic';
 
 export default function PatientRecords() {
   // State for records and records
@@ -23,10 +27,14 @@ export default function PatientRecords() {
   const [detailModal, setDetailModal] = useState(false);
   const [editModal, setEditModal] = useState(false);
   const [addModal, setAddModal] = useState(false);
+  const [consultationModal, setConsultationModal] = useState(false);
+  const [notesModal, setNotesModal] = useState(false);
+  const [medicationsModal, setMedicationsModal] = useState(false);
   
   // Selected/Editing record
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [editingRecord, setEditingRecord] = useState(null);
+  const [expandedRecord, setExpandedRecord] = useState(null);
   const [newRecord, setNewRecord] = useState({
     patientName: '',
     date: new Date().toISOString().split('T')[0],
@@ -37,7 +45,28 @@ export default function PatientRecords() {
     treatment: '',
     notes: '',
     documents: false,
-    status: 'Today'
+    status: 'Today',
+    consultations: [],
+    allNotes: '',
+    medications: []
+  });
+
+  // Consultation states
+  const [newConsultation, setNewConsultation] = useState({
+    date: new Date().toISOString().split('T')[0],
+    time: new Date().toTimeString().slice(0, 5),
+    doctorName: '',
+    notes: '',
+    suggestedMedications: []
+  });
+
+  const [editingNotes, setEditingNotes] = useState('');
+  const [newMedication, setNewMedication] = useState({
+    name: '',
+    dosage: '',
+    frequency: '',
+    duration: '',
+    status: 'Active'
   });
 
   // Filter states
