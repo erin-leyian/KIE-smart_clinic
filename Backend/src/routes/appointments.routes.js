@@ -11,10 +11,10 @@ const { authenticate, requireRole } = require('../middleware/auth.middleware');
 
 router.use(authenticate);
 
-router.get('/', requireRole('admin', 'receptionist'), getAppointments);
-router.get('/:id', requireRole('admin', 'receptionist'), getAppointmentById);
-router.post('/', requireRole('admin', 'receptionist'), createAppointment);
-router.put('/:id', requireRole('admin', 'receptionist'), updateAppointment);
-router.delete('/:id', requireRole('admin', 'receptionist'), cancelAppointment);
+router.get('/', requireRole('Admin', 'receptionist'), getAppointments);
+router.get('/:id', requireRole('Admin', 'receptionist'), getAppointmentById);
+router.post('/', requireRole('Admin', 'receptionist'), createAppointment);
+router.put('/:id', requireRole('Admin', 'receptionist'), updateAppointment);
+router.delete('/:id', requireRole('Admin', 'receptionist'), cancelAppointment);
 
 module.exports = router;

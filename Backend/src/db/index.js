@@ -1,10 +1,21 @@
-// Database not connected yet — waiting for teammate
-// This file will be updated once DB credentials are shared
+const mysql = require('mysql2/promise');
 
-const mockDB = {
-  query: async () => {
-    throw new Error('Database not connected yet');
-  }
-};
+const pool = mysql.createPool({
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  database: process.env.DB_NAME,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  ssl: { rejectUnauthorized: false },
+  waitForConnections: true,
+  connectionLimit: 10,
+});
 
-module.exports = mockDB;
+pool.getConnection()
+  .then(conn => {
+    console.log('✅ Connected to Aiven MySQL');
+    conn.release();
+  })
+  .catch(err => console.error('❌ DB connection failed:', err.message));
+
+module.exports = pool;
