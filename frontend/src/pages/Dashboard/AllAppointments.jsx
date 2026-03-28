@@ -3,7 +3,7 @@ import { Clock, MapPin, Phone, Video, MessageSquare, CheckCircle, Calendar, Chev
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import Modal from '../../components/Modal';
 import mockData from '../../data/mockData.json';
-import { getSpecialtyIcon, getSpecialtyBgColor } from '../../utils/medicalIcons';
+import { getIconComponent, getSpecialtyBgColor } from '../../utils/medicalIcons';
 
 export default function AllAppointments() {
   const [appointments, setAppointments] = useState(mockData.appointments || []);
@@ -100,7 +100,7 @@ export default function AllAppointments() {
           <div className="space-y-4">
             {sortedAppointments.map(apt => {
               const bgColor = getSpecialtyBgColor(apt.specialty);
-              const icon = getSpecialtyIcon(apt.specialty);
+              const IconComponent = getIconComponent(apt.specialty);
               return (
                 <div
                   key={apt.id}
@@ -110,8 +110,8 @@ export default function AllAppointments() {
                   <div className="flex items-start justify-between">
                     <div className="flex items-start space-x-4 flex-1">
                       {/* Doctor Icon */}
-                      <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${bgColor} flex items-center justify-center text-2xl flex-shrink-0 group-hover:scale-110 transition`}>
-                        {icon}
+                      <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${bgColor} flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition`}>
+                        <IconComponent className="w-7 h-7 text-gray-700" />
                       </div>
 
                       {/* Details */}
@@ -122,34 +122,34 @@ export default function AllAppointments() {
                         <p className="text-sm text-gray-600 mt-0.5">{apt.specialty}</p>
 
                         <div className="flex items-center gap-4 mt-3 flex-wrap">
-                        <div className="flex items-center text-gray-600 text-sm">
-                          <Calendar className="w-4 h-4 mr-1.5 text-gray-400" />
-                          {apt.date}
-                        </div>
-                        <div className="flex items-center text-gray-600 text-sm">
-                          <Clock className="w-4 h-4 mr-1.5 text-gray-400" />
-                          {apt.time}
-                        </div>
-                        <div className="flex items-center text-gray-600 text-sm">
-                          {getConsultationTypeIcon(apt.type)}
-                          <span className="ml-1.5">{apt.type}</span>
+                          <div className="flex items-center text-gray-600 text-sm">
+                            <Calendar className="w-4 h-4 mr-1.5 text-gray-400" />
+                            {apt.date}
+                          </div>
+                          <div className="flex items-center text-gray-600 text-sm">
+                            <Clock className="w-4 h-4 mr-1.5 text-gray-400" />
+                            {apt.time}
+                          </div>
+                          <div className="flex items-center text-gray-600 text-sm">
+                            {getConsultationTypeIcon(apt.type)}
+                            <span className="ml-1.5">{apt.type}</span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Status and Fee */}
-                  <div className="flex flex-col items-end gap-2 ml-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getStatusColor(apt.status)}`}>
-                      {apt.status}
-                    </span>
-                    <div className="text-right">
-                      <p className="text-xs text-gray-600">Fee</p>
-                      <p className="font-bold text-teal-600">{apt.fee}</p>
+                    {/* Status and Fee */}
+                    <div className="flex flex-col items-end gap-2 ml-4">
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getStatusColor(apt.status)}`}>
+                        {apt.status}
+                      </span>
+                      <div className="text-right">
+                        <p className="text-xs text-gray-600">Fee</p>
+                        <p className="font-bold text-teal-600">{apt.fee}</p>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
               );
             })}
           </div>
@@ -185,8 +185,11 @@ export default function AllAppointments() {
           <div className="space-y-5">
             {/* Doctor Info */}
             <div className="flex items-start space-x-4 pb-4 border-b">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-teal-100 to-blue-100 flex items-center justify-center text-2xl flex-shrink-0">
-                {getIcon(selectedAppointment.specialty)}
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-teal-100 to-blue-100 flex items-center justify-center flex-shrink-0">
+                {(() => {
+                  const IconComponent = getIconComponent(selectedAppointment.specialty);
+                  return <IconComponent className="w-8 h-8 text-teal-600" />;
+                })()}
               </div>
               <div>
                 <h3 className="font-bold text-gray-900">{selectedAppointment.doctorName}</h3>

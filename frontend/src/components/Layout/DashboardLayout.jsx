@@ -1,5 +1,5 @@
-import React from "react";
-import { Link, useLocation } from "react-router-dom";
+import React, { useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import mockData from "../../data/mockData.json";
 import {
   LayoutDashboard,
@@ -14,10 +14,24 @@ import {
   Search,
   MapPin,
   Settings,
+  ChevronDown,
 } from "lucide-react";
 
 export default function DashboardLayout({ children, title }) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [languageDropdown, setLanguageDropdown] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState("EN");
+  const languages = ["EN", "FR", "RW"];
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      // Navigate to All Doctors page with search query as URL parameter
+      navigate(`/dashboard/doctors?search=${encodeURIComponent(searchQuery)}`);
+    }
+  };
 
   const navItems = [
     {
@@ -116,43 +130,63 @@ export default function DashboardLayout({ children, title }) {
           </div>
 
           <div className="flex-1 max-w-[600px] ml-4">
-            <div className="flex items-center bg-[#f4f7f8] rounded-xl p-1 border border-gray-100/50">
-              <div className="flex items-center flex-1 px-4 py-2 border-r border-gray-200/60">
-                <Search className="text-gray-400 w-4 h-4 mr-3" />
-                <input
-                  type="text"
-                  placeholder="Find doctors"
-                  className="bg-transparent border-none outline-none w-full text-sm text-gray-700 placeholder-gray-400 focus:ring-0"
-                />
-              </div>
-              <div className="flex items-center flex-1 px-4 py-2">
-                <MapPin className="text-gray-400 w-4 h-4 mr-3" />
-                <input
-                  type="text"
-                  placeholder="Location"
-                  className="bg-transparent border-none outline-none w-full text-sm text-gray-700 placeholder-gray-400 focus:ring-0"
-                />
-              </div>
-              <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
-                <Settings className="w-4 h-4" />
-              </button>
-              <button className="bg-[#389cb4] hover:bg-[#328c9f] text-white px-7 py-2.5 rounded-lg text-sm font-medium transition-colors ml-1">
-                Search
+            <div className="flex items-center bg-[#f4f7f8] rounded-xl border border-gray-100/50 px-4 py-2">
+              <input
+                type="text"
+                placeholder="Find doctors by name, specialty..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSearch(e)}
+                className="bg-transparent border-none outline-none w-full text-sm text-gray-700 placeholder-gray-400 focus:ring-0"
+              />
+              <button 
+                onClick={handleSearch}
+                className="ml-2 p-2 text-gray-400 hover:text-[#389cb4] transition-colors flex-shrink-0"
+                title="Search"
+              >
+                <Search className="w-5 h-5" />
               </button>
             </div>
           </div>
 
           <div className="flex items-center space-x-6 text-sm flex-shrink-0">
-            {/* Language Selector */}
-            <div className="flex items-center space-x-1 px-3 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer">
-              <span className="text-gray-700 font-medium">EN</span>
-              <span className="text-xs text-gray-500">▾</span>
+            {/* Language Selector with Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setLanguageDropdown(!languageDropdown)}
+                className="flex items-center space-x-1 px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer font-medium text-gray-700"
+              >
+                <span>{selectedLanguage}</span>
+                <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${languageDropdown ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {/* Language Dropdown Menu */}
+              {languageDropdown && (
+                <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                  {languages.map((lang) => (
+                    <button
+                      key={lang}
+                      onClick={() => {
+                        setSelectedLanguage(lang);
+                        setLanguageDropdown(false);
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm transition-colors ${
+                        selectedLanguage === lang
+                          ? 'bg-teal-50 text-teal-600 font-medium'
+                          : 'text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      {lang === 'EN' ? 'English' : lang === 'FR' ? 'Français' : 'Kinyarwanda'}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Notification Bell with Badge */}
             <button className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
               <Bell className="w-5 h-5" />
-              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white shadow-sm"></span>
+              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white shadow-sm animate-pulse"></span>
             </button>
 
             {/* User Info without Avatar */}

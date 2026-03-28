@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Search, Star, CreditCard, Clock, ChevronDown } from 'lucide-react';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import Modal from '../../components/Modal';
 import mockData from '../../data/mockData.json';
-import { getSpecialtyIcon, getSpecialtyBgColor } from '../../utils/medicalIcons';
+import { getIconComponent, getSpecialtyBgColor } from '../../utils/medicalIcons';
 
 export default function AllDoctors() {
+  const location = useLocation();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSpecialty, setSelectedSpecialty] = useState('All');
   const [selectedDoctorDetails, setSelectedDoctorDetails] = useState(null);
@@ -15,6 +17,15 @@ export default function AllDoctors() {
   const [selectedDoctorForBooking, setSelectedDoctorForBooking] = useState(null);
 
   const doctors = mockData.doctors;
+
+  // Read search parameter from URL on mount
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const searchParam = params.get('search');
+    if (searchParam) {
+      setSearchTerm(decodeURIComponent(searchParam));
+    }
+  }, [location.search]);
 
   // Get unique specialties
   const specialties = ['All', ...new Set(doctors.map(d => d.specialty))];
@@ -90,7 +101,7 @@ export default function AllDoctors() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredDoctors.map(doctor => {
               const bgColor = getSpecialtyBgColor(doctor.specialty);
-              const icon = getSpecialtyIcon(doctor.specialty);
+              const IconComponent = getIconComponent(doctor.specialty);
               return (
                 <div
                   key={doctor.id}
@@ -98,8 +109,8 @@ export default function AllDoctors() {
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-start space-x-3 flex-1">
-                      <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${bgColor} flex items-center justify-center text-2xl flex-shrink-0 group-hover:scale-110 transition`}>
-                        {icon}
+                      <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${bgColor} flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition`}>
+                        <IconComponent className="w-7 h-7 text-gray-700" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <h3 className="font-bold text-gray-900 group-hover:text-teal-600 transition cursor-pointer" onClick={() => openDoctorDetails(doctor)}>
@@ -189,7 +200,10 @@ export default function AllDoctors() {
           <div className="space-y-6">
             <div className="flex items-start space-x-4 pb-4 border-b">
               <div className="w-20 h-20 rounded-full bg-gradient-to-br from-teal-100 to-blue-100 flex items-center justify-center text-4xl flex-shrink-0">
-                {selectedDoctorDetails.icon}
+                {(() => {
+                  const IconComponent = getIconComponent(selectedDoctorDetails.specialty);
+                  return <IconComponent className="w-10 h-10 text-teal-600" />;
+                })()}
               </div>
               <div className="flex-1">
                 <h3 className="text-lg font-bold text-gray-900">{selectedDoctorDetails.name}</h3>

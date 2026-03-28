@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { MapPin, Clock, CreditCard, ChevronLeft, ChevronRight, Calendar as CalendarIcon, ChevronUp, CheckCircle, Star, Phone, MessageSquare, Video, Stethoscope, AlertCircle } from 'lucide-react';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import Modal from '../../components/Modal';
 import { LoadingSpinner, DoctorCardSkeleton, BannerSkeleton } from '../../components/LoadingSkeletons';
 import mockData from '../../data/mockData.json';
-import { getSpecialtyIcon, getSpecialtyBgColor } from '../../utils/medicalIcons';
+import { getIconComponent, getSpecialtyBgColor } from '../../utils/medicalIcons';
 
 export default function DashboardHome() {
+  const navigate = useNavigate();
   const [activeDot, setActiveDot] = useState(0);
   const [bookedDoctors, setBookedDoctors] = useState({});
   const [appointmentsFilter, setAppointmentsFilter] = useState('upcoming');
@@ -256,7 +258,7 @@ export default function DashboardHome() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {nearbyDoctors.map(doctor => {
                 const bgColor = getSpecialtyBgColor(doctor.specialty);
-                const icon = getSpecialtyIcon(doctor.specialty);
+                const IconComponent = getIconComponent(doctor.specialty);
                 return (
                   <div 
                     key={doctor.id} 
@@ -264,8 +266,8 @@ export default function DashboardHome() {
                     className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm hover:shadow-md hover:border-teal-200 transition-all cursor-pointer group"
                   >
                     <div className="flex items-center space-x-3 mb-4">
-                      <div className={`w-16 h-12 rounded-lg bg-gradient-to-br ${bgColor} flex items-center justify-center text-3xl group-hover:scale-110 transition`}>
-                        {icon}
+                      <div className={`w-16 h-12 rounded-lg bg-gradient-to-br ${bgColor} flex items-center justify-center group-hover:scale-110 transition`}>
+                        <IconComponent className="w-7 h-7 text-gray-700" />
                       </div>
                       <div>
                         <h4 className="font-bold text-gray-800 text-sm group-hover:text-teal-600 transition">{doctor.name}</h4>
@@ -299,15 +301,15 @@ export default function DashboardHome() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {recommendedDoctors.slice(0, 6).map((doctor) => {
                 const bgColor = getSpecialtyBgColor(doctor.specialty);
-                const icon = getSpecialtyIcon(doctor.specialty);
+                const IconComponent = getIconComponent(doctor.specialty);
                 return (
                   <div 
                     key={doctor.id} 
                     className="bg-white border rounded-2xl p-5 text-left flex flex-col hover:border-teal-100 hover:shadow-md transition-all group"
                   >
                     <div className="flex items-center space-x-3 mb-4">
-                      <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${bgColor} flex items-center justify-center text-2xl group-hover:scale-110 transition-transform`}>
-                        {icon}
+                      <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${bgColor} flex items-center justify-center group-hover:scale-110 transition-transform`}>
+                        <IconComponent className="w-7 h-7 text-gray-700" />
                       </div>
                       <div className="flex-1">
                         <h4 className="font-bold text-gray-800 group-hover:text-teal-600 transition cursor-pointer" onClick={() => openDoctorDetails(doctor)}>
@@ -371,13 +373,18 @@ export default function DashboardHome() {
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-lg font-bold text-gray-800">Upcoming Appointments</h3>
-              <button className="text-[#389cb4] text-sm font-semibold hover:underline">View All &gt;</button>
+              <button 
+                onClick={() => navigate('/dashboard/appointments')}
+                className="text-[#389cb4] text-sm font-semibold hover:underline transition-colors hover:text-[#328c9f]"
+              >
+                View All &gt;
+              </button>
             </div>
             
-            {/* Header for June 2023 */}
+            {/* Header with Current Month/Year */}
             <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-50">
               <div className="flex items-center space-x-3">
-                <span className="font-bold text-gray-800 text-base">June 2023</span>
+                <span className="font-bold text-gray-800 text-base">{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
                 <div className="flex space-x-1">
                   <button className="p-0.5 text-gray-400 hover:text-gray-600 transition-colors"><ChevronLeft className="w-4 h-4" /></button>
                   <button className="p-0.5 text-gray-400 hover:text-gray-600 transition-colors"><ChevronRight className="w-4 h-4" /></button>
@@ -397,29 +404,35 @@ export default function DashboardHome() {
                 {upcomingAppointmentsList.length === 0 ? (
                   <p className="text-gray-500 text-sm text-center py-4">No upcoming appointments</p>
                 ) : (
-                  upcomingAppointmentsList.map((apt, i) => (
-                    <div 
-                      key={i} 
-                      className={`flex items-center rounded-xl p-3 cursor-pointer transition-all border group ${
-                        apt.status === 'Confirmed' 
-                          ? 'bg-teal-50 border-teal-200 hover:bg-teal-100' 
-                          : 'bg-gray-50/50 border-gray-100 hover:bg-gray-50'
-                      }`}
-                    >
-                      <div className="flex flex-col items-center justify-center min-w-[50px] pr-4 border-r border-gray-200/50">
-                        <span className="text-xs text-gray-500 font-medium uppercase">{apt.day}</span>
-                        <span className="text-lg font-bold text-gray-800 leading-none mt-0.5">{apt.date}</span>
+                  upcomingAppointmentsList.map((apt, i) => {
+                    const IconComponent = getIconComponent(apt.specialty);
+                    return (
+                      <div 
+                        key={i} 
+                        className={`flex items-center rounded-xl p-3 cursor-pointer transition-all border group ${
+                          apt.status === 'Confirmed' 
+                            ? 'bg-teal-50 border-teal-200 hover:bg-teal-100' 
+                            : 'bg-gray-50/50 border-gray-100 hover:bg-gray-50'
+                        }`}
+                      >
+                        <div className="flex flex-col items-center justify-center min-w-[50px] pr-4 border-r border-gray-200/50">
+                          <span className="text-xs text-gray-500 font-medium uppercase">{apt.day}</span>
+                          <span className="text-lg font-bold text-gray-800 leading-none mt-0.5">{apt.date}</span>
+                        </div>
+                        <div className="pl-4 flex-1">
+                          <h4 className="font-bold text-gray-800 text-sm group-hover:text-[#389cb4] transition-colors flex items-center gap-2">
+                            <IconComponent className="w-4 h-4 flex-shrink-0" />
+                            {apt.doctor}
+                          </h4>
+                          <p className="text-xs text-gray-400 mt-0.5 flex items-center">
+                            <Clock className="w-3 h-3 inline mr-1" />
+                            {apt.time}
+                          </p>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition-colors" />
                       </div>
-                      <div className="pl-4 flex-1">
-                        <h4 className="font-bold text-gray-800 text-sm group-hover:text-[#389cb4] transition-colors">{apt.doctor}</h4>
-                        <p className="text-xs text-gray-400 mt-0.5 flex items-center">
-                          <Clock className="w-3 h-3 inline mr-1" />
-                          {apt.time}
-                        </p>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition-colors" />
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -662,7 +675,10 @@ export default function DashboardHome() {
           <div className="space-y-6">
             <div className="flex items-start space-x-4 pb-4 border-b">
               <div className="w-20 h-20 rounded-full bg-gradient-to-br from-teal-100 to-blue-100 flex items-center justify-center text-4xl flex-shrink-0">
-                {selectedDoctorDetails.icon || "🩺"}
+                {(() => {
+                  const IconComponent = getIconComponent(selectedDoctorDetails.specialty);
+                  return <IconComponent className="w-10 h-10 text-teal-600" />;
+                })()}
               </div>
               <div className="flex-1">
                 <h3 className="text-lg font-bold text-gray-900">{selectedDoctorDetails.name}</h3>
