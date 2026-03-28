@@ -31,6 +31,17 @@
       "insurance": "RSSB",
       "insureNumber": "RSSB-000123456",
       "medicalHistory": ["Hypertension - 2 years", "Occasional migraines"]
+    },
+    {
+      "id": 3,
+      "email": "admin@queuecare.rw",
+      "password": "admin123",
+      "name": "Admin User",
+      "role": "admin",
+      "location": "Kigali, Rwanda",
+      "phone": "+250 789 999 999",
+      "avatar": "https://randomuser.me/api/portraits/men/50.jpg",
+      "permissions": ["view_all_users", "manage_doctors", "manage_clinics", "view_analytics", "manage_admins"]
     }
   ],
   "hospitals": [
@@ -552,116 +563,168 @@
   "appointments": [
     {
       "id": 1,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
       "doctorName": "Dr. Jean Mukasine",
       "doctorImage": "https://randomuser.me/api/portraits/men/32.jpg",
       "specialty": "General Practitioner",
+      "hospital": "Kigali Central Hospital",
       "time": "09:00 - 09:30",
       "date": "Yesterday",
       "dateObj": "2026-03-27",
       "status": "Completed",
+      "type": "In-Person",
+      "fee": "15000 RWF",
       "notes": "Routine checkup completed successfully"
     },
     {
       "id": 2,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
       "doctorName": "Dr. Marie Ikirezi",
       "doctorImage": "https://randomuser.me/api/portraits/women/45.jpg",
       "specialty": "Pediatrician",
+      "hospital": "Kigali Central Hospital",
       "time": "10:30 - 11:00",
       "date": "Yesterday",
       "dateObj": "2026-03-27",
       "status": "Completed",
+      "type": "In-Person",
+      "fee": "28000 RWF",
       "notes": "Child vaccination appointment completed"
     },
     {
       "id": 3,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
       "doctorName": "Dr. Sylvain Uwizeye",
       "doctorImage": "https://randomuser.me/api/portraits/men/45.jpg",
       "specialty": "Cardiologist",
+      "hospital": "King Faisal Hospital",
       "time": "02:00 - 02:30",
       "date": "Yesterday",
       "dateObj": "2026-03-27",
       "status": "Completed",
+      "type": "Video Call",
+      "fee": "35000 RWF",
       "notes": "Cardiac consultation with EKG performed"
     },
     {
       "id": 4,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
       "doctorName": "Dr. Grace Mukantabana",
       "doctorImage": "https://randomuser.me/api/portraits/women/68.jpg",
       "specialty": "Obstetrician",
+      "hospital": "Rwanda Medical Center",
       "time": "08:00 - 08:30",
       "date": "Today",
       "dateObj": "2026-03-28",
       "status": "Confirmed",
+      "type": "In-Person",
+      "fee": "40000 RWF",
       "notes": "Antenatal care appointment - 28 weeks"
     },
     {
       "id": 5,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
       "doctorName": "Dr. Paul Hakizimana",
       "doctorImage": "https://randomuser.me/api/portraits/men/78.jpg",
       "specialty": "Surgeon",
+      "hospital": "King Faisal Hospital",
       "time": "03:00 - 03:30",
       "date": "Today",
       "dateObj": "2026-03-28",
       "status": "Confirmed",
+      "type": "In-Person",
+      "fee": "50000 RWF",
       "notes": "Post-operative check-up scheduled"
     },
     {
       "id": 6,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
       "doctorName": "Dr. Innocent Ndahiro",
       "doctorImage": "https://randomuser.me/api/portraits/men/56.jpg",
       "specialty": "Dermatologist",
+      "hospital": "Rwanda Medical Center",
       "time": "11:00 - 11:30",
       "date": "Tomorrow",
       "dateObj": "2026-03-29",
       "status": "Pending",
+      "type": "Video Call",
+      "fee": "24000 RWF",
       "notes": "Skin condition follow-up"
     },
     {
       "id": 7,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
       "doctorName": "Dr. Denis Murwanashyaka",
       "doctorImage": "https://randomuser.me/api/portraits/men/12.jpg",
       "specialty": "Gastroenterologist",
+      "hospital": "Rwanda Medical Center",
       "time": "01:30 - 02:00",
       "date": "Tomorrow",
       "dateObj": "2026-03-29",
       "status": "Pending",
+      "type": "In-Person",
+      "fee": "31000 RWF",
       "notes": "Gastric ulcer management consultation"
     },
     {
       "id": 8,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
       "doctorName": "Dr. Florence Umutoniwase",
       "doctorImage": "https://randomuser.me/api/portraits/women/23.jpg",
       "specialty": "Neurologist",
+      "hospital": "King Faisal Hospital",
       "time": "09:15 - 09:45",
       "date": "Next week",
       "dateObj": "2026-03-30",
       "status": "Scheduled",
+      "type": "Video Call",
+      "fee": "38000 RWF",
       "notes": "Neurological assessment for chronic headaches"
     },
     {
       "id": 9,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
       "doctorName": "Dr. Clement Karekezi",
       "doctorImage": "https://randomuser.me/api/portraits/men/34.jpg",
       "specialty": "ENT Specialist",
+      "hospital": "Kigali Central Hospital",
       "time": "04:00 - 04:30",
       "date": "Next week",
       "dateObj": "2026-03-31",
       "status": "Scheduled",
+      "type": "In-Person",
+      "fee": "24000 RWF",
       "notes": "Chronic sinusitis consultation"
     },
     {
       "id": 10,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
       "doctorName": "Dr. Hortense Nzamwita",
       "doctorImage": "https://randomuser.me/api/portraits/women/89.jpg",
       "specialty": "Ophthalmologist",
+      "hospital": "King Faisal Hospital",
       "time": "10:00 - 10:30",
       "date": "Next week",
       "dateObj": "2026-04-01",
       "status": "Scheduled",
+      "type": "In-Person",
+      "fee": "26000 RWF",
       "notes": "Annual eye examination"
     },
     {
       "id": 11,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
       "doctorName": "Dr. Sylvain Uwizeye",
       "doctorImage": "https://randomuser.me/api/portraits/men/45.jpg",
       "specialty": "Cardiologist",
@@ -673,6 +736,8 @@
     },
     {
       "id": 12,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
       "doctorName": "Dr. Grace Mukantabana",
       "doctorImage": "https://randomuser.me/api/portraits/women/68.jpg",
       "specialty": "Obstetrician",
@@ -684,6 +749,8 @@
     },
     {
       "id": 13,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
       "doctorName": "Dr. Paul Hakizimana",
       "doctorImage": "https://randomuser.me/api/portraits/men/78.jpg",
       "specialty": "Surgeon",
@@ -695,6 +762,8 @@
     },
     {
       "id": 14,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
       "doctorName": "Dr. Jean Mukasine",
       "doctorImage": "https://randomuser.me/api/portraits/men/32.jpg",
       "specialty": "General Practitioner",
@@ -706,6 +775,8 @@
     },
     {
       "id": 15,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
       "doctorName": "Dr. Florence Umutoniwase",
       "doctorImage": "https://randomuser.me/api/portraits/women/23.jpg",
       "specialty": "Neurologist",
@@ -1016,6 +1087,49 @@
       "category": "Emergency",
       "question": "What should I do in case of emergency?",
       "answer": "Call our emergency line: +250 252 584 960 or go directly to King Faisal Hospital's emergency department."
+    }
+  ],
+  "doctorAvailability": [
+    {
+      "doctorId": 1,
+      "doctorName": "Dr. Jean Mukasine",
+      "month": "May",
+      "year": 2023,
+      "locations": [
+        {
+          "name": "Online",
+          "slots": [1, 8, 15, 22, 29],
+          "times": ["4:00-8:00 pm", "4:00-8:00 pm", "4:00-8:00 pm"]
+        },
+        {
+          "name": "Clinic 1",
+          "slots": [2, 9, 16, 23, 30],
+          "times": ["4:00-8:00 pm", "4:00-8:00 pm", "4:00-8:00 pm"]
+        },
+        {
+          "name": "Clinic 2",
+          "slots": [3, 10, 17, 24, 31],
+          "times": ["4:00-8:00 pm", "4:00-8:00 pm", "4:00-8:00 pm"]
+        }
+      ]
+    },
+    {
+      "doctorId": 2,
+      "doctorName": "Dr. Marie Ikirezi",
+      "month": "May",
+      "year": 2023,
+      "locations": [
+        {
+          "name": "Online",
+          "slots": [2, 9, 16, 23, 30],
+          "times": ["9:00-12:00 pm", "9:00-12:00 pm", "9:00-12:00 pm"]
+        },
+        {
+          "name": "Clinic 2",
+          "slots": [4, 11, 18, 25],
+          "times": ["2:00-5:00 pm", "2:00-5:00 pm", "2:00-5:00 pm"]
+        }
+      ]
     }
   ]
 }

@@ -5,6 +5,7 @@ import Modal from '../../components/Modal';
 import mockData from '../../data/mockData.json';
 import { getIconComponent, getSpecialtyBgColor } from '../../utils/medicalIcons';
 import { formatErrorMessage } from '../../utils/errorHandler';
+import { notifyAppointmentConfirmed, notifyAppointmentCancelled, notifyAppointmentRescheduled } from '../../utils/notificationManager';
 
 export default function AllAppointments() {
   const [appointments, setAppointments] = useState(mockData.appointments || []);
@@ -14,6 +15,8 @@ export default function AllAppointments() {
   const [sortBy, setSortBy] = useState('date');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [currentUser, setCurrentUser] = useState(null);
+  const [userRole, setUserRole] = useState('patient');
 
   // Load appointments data with error handling
   useEffect(() => {
@@ -21,6 +24,14 @@ export default function AllAppointments() {
       try {
         setLoading(true);
         setError('');
+        
+        // Get current user from localStorage
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          const user = JSON.parse(storedUser);
+          setCurrentUser(user);
+          setUserRole(user.role || 'patient');
+        }
         
         // Simulate network delay
         await new Promise(resolve => setTimeout(resolve, 600));
@@ -41,6 +52,20 @@ export default function AllAppointments() {
     
     loadAppointments();
   }, []);
+
+  // Create sample notifications on first load
+  useEffect(() => {
+    const hasSeenSampleNotifications = localStorage.getItem('sampleNotificationsShown');
+    
+    if (!hasSeenSampleNotifications && appointments.length > 0) {
+      // Add a sample notification when user first views appointments
+      const upcomingAppointment = appointments.find(apt => apt.status === 'Confirmed');
+      if (upcomingAppointment) {
+        notifyAppointmentConfirmed(upcomingAppointment);
+        localStorage.setItem('sampleNotificationsShown', 'true');
+      }
+    }
+  }, [appointments]);
 
   // Retry loading appointments
   const handleRetryLoadData = async () => {
@@ -65,8 +90,16 @@ export default function AllAppointments() {
     }
   };
 
-  // Filter appointments
+  // Filter appointments - patients see only their own
   const filteredAppointments = appointments.filter(apt => {
+    // If patient, show only their appointments
+    if (userRole === 'patient' && currentUser) {
+      // Filter by patient name or ID matching
+      const isPatientAppointment = apt.patientName === currentUser.name || apt.patientId === currentUser.id;
+      if (!isPatientAppointment) return false;
+    }
+    
+    // Apply status filter
     if (filterStatus === 'All') return true;
     return apt.status === filterStatus;
   });
@@ -84,6 +117,53 @@ export default function AllAppointments() {
   const openAppointmentDetails = (apt) => {
     setSelectedAppointment(apt);
     setAppointmentModal(true);
+  };
+
+  const handleConfirmAppointment = () => {
+    if (selectedAppointment && selectedAppointment.status !== 'Confirmed') {
+      notifyAppointmentConfirmed(selectedAppointment);
+      // Update appointment status
+      const updated = appointments.map(apt =>
+        apt.id === selectedAppointment.id ? { ...apt, status: 'Confirmed' } : apt
+      );
+      setAppointments(updated);
+      setSelectedAppointment({ ...selectedAppointment, status: 'Confirmed' });
+    }
+  };
+
+  const handleCancelAppointment = () => {
+    if (selectedAppointment && selectedAppointment.status !== 'Cancelled') {
+      notifyAppointmentCancelled(selectedAppointment);
+      // Update appointment status
+      const updated = appointments.map(apt =>
+        apt.id === selectedAppointment.id ? { ...apt, status: 'Cancelled' } : apt
+      );
+      setAppointments(updated);
+      setAppointmentModal(false);
+    }
+  };
+
+  const handleRescheduleAppointment = () => {
+    if (selectedAppointment) {
+      const newDate = window.prompt('Enter new date (e.g., Tomorrow):');
+      const newTime = window.prompt('Enter new time (e.g., 10:00 - 10:30):');
+      
+      if (newDate && newTime) {
+        notifyAppointmentRescheduled({
+          ...selectedAppointment,
+          newDate,
+          newTime,
+        });
+        // Update appointment
+        const updated = appointments.map(apt =>
+          apt.id === selectedAppointment.id 
+            ? { ...apt, date: newDate, time: newTime, status: 'Confirmed' } 
+            : apt
+        );
+        setAppointments(updated);
+        setSelectedAppointment({ ...selectedAppointment, date: newDate, time: newTime, status: 'Confirmed' });
+      }
+    }
   };
 
   const getConsultationTypeIcon = (type) => {
@@ -243,16 +323,29 @@ export default function AllAppointments() {
         title={`Appointment with ${selectedAppointment?.doctorName}`}
         size="md"
         actions={[
-          {
-            label: selectedAppointment?.status === 'Completed' ? 'Close' : 'Reschedule',
-            onClick: () => setAppointmentModal(false),
-            variant: 'primary'
-          },
-          {
-            label: 'Close',
-            onClick: () => setAppointmentModal(false),
-            variant: 'secondary'
-          }
+          ...(selectedAppointment?.status === 'Completed' ? [
+            {
+              label: 'Close',
+              onClick: () => setAppointmentModal(false),
+              variant: 'primary'
+            }
+          ] : [
+            {
+              label: 'Confirm',
+              onClick: handleConfirmAppointment,
+              variant: 'primary'
+            },
+            {
+              label: 'Reschedule',
+              onClick: handleRescheduleAppointment,
+              variant: 'secondary'
+            },
+            {
+              label: 'Cancel',
+              onClick: handleCancelAppointment,
+              variant: 'danger'
+            }
+          ])
         ]}
       >
         {selectedAppointment && (
@@ -288,6 +381,15 @@ export default function AllAppointments() {
                 <span className="text-gray-600 text-sm">Fee</span>
                 <span className="font-bold text-teal-600 text-lg">{selectedAppointment.fee}</span>
               </div>
+              {selectedAppointment.hospital && (
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 text-sm">Location</span>
+                  <div className="flex items-center gap-1.5 font-bold text-gray-900">
+                    <MapPin className="w-4 h-4 text-gray-400" />
+                    {selectedAppointment.hospital}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Status */}
