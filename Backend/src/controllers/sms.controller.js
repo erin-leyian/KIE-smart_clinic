@@ -171,10 +171,10 @@ const handleCancel = async (phone) => {
     }
 
     const appt = appointments[0];
-    await pool.query(
-      'UPDATE Appointment SET Status = "Cancelled" WHERE AppointmentID = ?',
-      [appt.AppointmentID]
-    );
+   await pool.query(
+  'UPDATE Appointment SET Status = ? WHERE AppointmentID = ?',
+  ['Cancelled', appt.AppointmentID]
+);
 
     const dateStr = new Date(appt.AppointmentDate).toISOString().split('T')[0];
     return `${patient.FirstName} ${patient.LastName}, your appointment on ${dateStr} at ${appt.AppointmentTime} has been cancelled successfully.`;
