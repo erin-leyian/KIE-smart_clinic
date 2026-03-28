@@ -3,6 +3,7 @@ import { Search, Star, CreditCard, Clock, ChevronDown } from 'lucide-react';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import Modal from '../../components/Modal';
 import mockData from '../../data/mockData.json';
+import { getSpecialtyIcon, getSpecialtyBgColor } from '../../utils/medicalIcons';
 
 export default function AllDoctors() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -13,34 +14,7 @@ export default function AllDoctors() {
   const [bookingModal, setBookingModal] = useState(false);
   const [selectedDoctorForBooking, setSelectedDoctorForBooking] = useState(null);
 
-  // Specialty icons mapping
-  const getIcon = (specialty) => {
-    if (specialty.includes('Cardiologist')) return '💓';
-    if (specialty.includes('Pediatrician')) return '👶';
-    if (specialty.includes('Obstetrician')) return '🤰';
-    if (specialty.includes('Surgeon')) return '🔪';
-    if (specialty.includes('Dermatologist')) return '🔴';
-    if (specialty.includes('Psychiatrist')) return '🧠';
-    if (specialty.includes('Orthopedist')) return '🦴';
-    if (specialty.includes('Ophthalmologist')) return '👁️';
-    if (specialty.includes('Gastroenterologist')) return '🍽️';
-    if (specialty.includes('Neurologist')) return '🧠';
-    if (specialty.includes('ENT')) return '👂';
-    if (specialty.includes('Pharmacist')) return '💊';
-    if (specialty.includes('Pulmonologist')) return '💨';
-    if (specialty.includes('Radiologist')) return '🖼️';
-    if (specialty.includes('Anesthesiologist')) return '💉';
-    if (specialty.includes('Infectious')) return '🦠';
-    if (specialty.includes('Urologist')) return '🚽';
-    if (specialty.includes('Rheumatologist')) return '🦴';
-    if (specialty.includes('Hematologist')) return '🩸';
-    return '🩺';
-  };
-
-  const doctors = mockData.doctors.map(doc => ({
-    ...doc,
-    icon: getIcon(doc.specialty)
-  }));
+  const doctors = mockData.doctors;
 
   // Get unique specialties
   const specialties = ['All', ...new Set(doctors.map(d => d.specialty))];
@@ -114,46 +88,49 @@ export default function AllDoctors() {
         {/* Doctors Grid */}
         {filteredDoctors.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredDoctors.map(doctor => (
-              <div
-                key={doctor.id}
-                className="bg-white border rounded-2xl p-6 hover:shadow-lg hover:border-teal-200 transition-all group"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-start space-x-3 flex-1">
-                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-teal-100 to-blue-100 flex items-center justify-center text-2xl flex-shrink-0 group-hover:scale-110 transition">
-                      {doctor.icon}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-gray-900 group-hover:text-teal-600 transition cursor-pointer" onClick={() => openDoctorDetails(doctor)}>
-                        {doctor.name}
-                      </h3>
-                      <p className="text-xs text-gray-500 mt-0.5">{doctor.experience}</p>
-                      <div className="flex items-center mt-1">
-                        <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                        <span className="text-xs text-gray-600 ml-1">{doctor.rating}</span>
+            {filteredDoctors.map(doctor => {
+              const bgColor = getSpecialtyBgColor(doctor.specialty);
+              const icon = getSpecialtyIcon(doctor.specialty);
+              return (
+                <div
+                  key={doctor.id}
+                  className="bg-white border rounded-2xl p-6 hover:shadow-lg hover:border-teal-200 transition-all group"
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-start space-x-3 flex-1">
+                      <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${bgColor} flex items-center justify-center text-2xl flex-shrink-0 group-hover:scale-110 transition`}>
+                        {icon}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-gray-900 group-hover:text-teal-600 transition cursor-pointer" onClick={() => openDoctorDetails(doctor)}>
+                          {doctor.name}
+                        </h3>
+                        <p className="text-xs text-gray-500 mt-0.5">{doctor.experience}</p>
+                        <div className="flex items-center mt-1">
+                          <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                          <span className="text-xs text-gray-600 ml-1">{doctor.rating}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <span className="inline-block px-2.5 py-1 bg-teal-50 text-teal-600 text-[10px] font-medium rounded-md mb-4 w-fit">
-                  {doctor.specialty}
-                </span>
+                  <span className="inline-block px-2.5 py-1 bg-teal-50 text-teal-600 text-[10px] font-medium rounded-md mb-4 w-fit">
+                    {doctor.specialty}
+                  </span>
 
-                <div className="space-y-2 mb-4 pb-4 border-b border-gray-100 text-sm">
-                  <div className="text-gray-600">
-                    <span className="font-medium text-gray-800">{doctor.hospital}</span>
+                  <div className="space-y-2 mb-4 pb-4 border-b border-gray-100 text-sm">
+                    <div className="text-gray-600">
+                      <span className="font-medium text-gray-800">{doctor.hospital}</span>
+                    </div>
+                    <div className="flex items-center text-gray-600">
+                      <Clock className="w-3.5 h-3.5 mr-2 text-gray-400" />
+                      <span className="text-xs">{doctor.hours}</span>
+                    </div>
+                    <div className="flex items-center text-gray-600">
+                      <CreditCard className="w-3.5 h-3.5 mr-2 text-gray-400" />
+                      <span className="text-xs font-medium">{doctor.fee}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center text-gray-600">
-                    <Clock className="w-3.5 h-3.5 mr-2 text-gray-400" />
-                    <span className="text-xs">{doctor.hours}</span>
-                  </div>
-                  <div className="flex items-center text-gray-600">
-                    <CreditCard className="w-3.5 h-3.5 mr-2 text-gray-400" />
-                    <span className="text-xs font-medium">{doctor.fee}</span>
-                  </div>
-                </div>
 
                 <div className="flex gap-2">
                   <button
@@ -175,7 +152,8 @@ export default function AllDoctors() {
                   </button>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="bg-gray-50 rounded-xl p-12 text-center">

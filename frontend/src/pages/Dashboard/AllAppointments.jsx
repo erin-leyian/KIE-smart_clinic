@@ -3,6 +3,7 @@ import { Clock, MapPin, Phone, Video, MessageSquare, CheckCircle, Calendar, Chev
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import Modal from '../../components/Modal';
 import mockData from '../../data/mockData.json';
+import { getSpecialtyIcon, getSpecialtyBgColor } from '../../utils/medicalIcons';
 
 export default function AllAppointments() {
   const [appointments, setAppointments] = useState(mockData.appointments || []);
@@ -10,22 +11,6 @@ export default function AllAppointments() {
   const [appointmentModal, setAppointmentModal] = useState(false);
   const [filterStatus, setFilterStatus] = useState('All');
   const [sortBy, setSortBy] = useState('date');
-
-  const getIcon = (specialty) => {
-    if (specialty.includes('Cardiologist')) return '💓';
-    if (specialty.includes('Pediatrician')) return '👶';
-    if (specialty.includes('Obstetrician')) return '🤰';
-    if (specialty.includes('Surgeon')) return '🔪';
-    if (specialty.includes('Dermatologist')) return '🔴';
-    if (specialty.includes('Psychiatrist')) return '🧠';
-    if (specialty.includes('Orthopedist')) return '🦴';
-    if (specialty.includes('Ophthalmologist')) return '👁️';
-    if (specialty.includes('Gastroenterologist')) return '🍽️';
-    if (specialty.includes('Neurologist')) return '🧠';
-    if (specialty.includes('ENT')) return '👂';
-    if (specialty.includes('Pharmacist')) return '💊';
-    return '🩺';
-  };
 
   // Filter appointments
   const filteredAppointments = appointments.filter(apt => {
@@ -113,27 +98,30 @@ export default function AllAppointments() {
         {/* Appointments List */}
         {sortedAppointments.length > 0 ? (
           <div className="space-y-4">
-            {sortedAppointments.map(apt => (
-              <div
-                key={apt.id}
-                onClick={() => openAppointmentDetails(apt)}
-                className="bg-white border rounded-xl p-5 shadow-sm hover:shadow-md hover:border-teal-200 transition-all cursor-pointer group"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start space-x-4 flex-1">
-                    {/* Doctor Icon */}
-                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-teal-100 to-blue-100 flex items-center justify-center text-2xl flex-shrink-0 group-hover:scale-110 transition">
-                      {getIcon(apt.specialty)}
-                    </div>
+            {sortedAppointments.map(apt => {
+              const bgColor = getSpecialtyBgColor(apt.specialty);
+              const icon = getSpecialtyIcon(apt.specialty);
+              return (
+                <div
+                  key={apt.id}
+                  onClick={() => openAppointmentDetails(apt)}
+                  className="bg-white border rounded-xl p-5 shadow-sm hover:shadow-md hover:border-teal-200 transition-all cursor-pointer group"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start space-x-4 flex-1">
+                      {/* Doctor Icon */}
+                      <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${bgColor} flex items-center justify-center text-2xl flex-shrink-0 group-hover:scale-110 transition`}>
+                        {icon}
+                      </div>
 
-                    {/* Details */}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-gray-900 group-hover:text-teal-600 transition">
-                        {apt.doctorName}
-                      </h3>
-                      <p className="text-sm text-gray-600 mt-0.5">{apt.specialty}</p>
+                      {/* Details */}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-gray-900 group-hover:text-teal-600 transition">
+                          {apt.doctorName}
+                        </h3>
+                        <p className="text-sm text-gray-600 mt-0.5">{apt.specialty}</p>
 
-                      <div className="flex items-center gap-4 mt-3 flex-wrap">
+                        <div className="flex items-center gap-4 mt-3 flex-wrap">
                         <div className="flex items-center text-gray-600 text-sm">
                           <Calendar className="w-4 h-4 mr-1.5 text-gray-400" />
                           {apt.date}
@@ -162,7 +150,8 @@ export default function AllAppointments() {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="bg-gray-50 rounded-xl p-12 text-center">
