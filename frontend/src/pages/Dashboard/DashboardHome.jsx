@@ -7,6 +7,7 @@ import { LoadingSpinner, DoctorCardSkeleton, BannerSkeleton } from '../../compon
 import mockData from '../../data/mockData.json';
 import { getIconComponent, getSpecialtyBgColor } from '../../utils/medicalIcons';
 import { safeFetch, formatErrorMessage, loadMockData } from '../../utils/errorHandler';
+import { getCurrentUser, getUserRole, getFilteredAppointments, getUpcomingAppointments } from '../../utils/dataAccessControl';
 
 export default function DashboardHome() {
   const navigate = useNavigate();
@@ -19,6 +20,8 @@ export default function DashboardHome() {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [userRole, setUserRole] = useState('patient');
   
   // Modal states
   const [bookingModal, setBookingModal] = useState(false);
@@ -70,6 +73,12 @@ export default function DashboardHome() {
         setLoading(true);
         setError('');
         
+        // Get current user
+        const user = getCurrentUser();
+        const role = getUserRole();
+        setCurrentUser(user);
+        setUserRole(role);
+        
         // Simulate loading delay
         await new Promise(resolve => setTimeout(resolve, 800));
         
@@ -119,6 +128,12 @@ export default function DashboardHome() {
       setLoading(true);
       setError('');
       
+      // Get current user
+      const user = getCurrentUser();
+      const role = getUserRole();
+      setCurrentUser(user);
+      setUserRole(role);
+      
       // Simulate loading delay
       await new Promise(resolve => setTimeout(resolve, 800));
       
@@ -162,11 +177,12 @@ export default function DashboardHome() {
     setDoctorDetailsModal(true);
   };
   
-  // Use mock data
+  // Use mock data with role-based filtering
   const recommendedDoctors = mockData.doctors || [];
   
-  // Format appointments from mockData to match the design visually
-  const upcomingAppointmentsList = (mockData.appointments || []).map((apt, index) => {
+  // Format filtered appointments to match the design visually
+  const filteredAppointments = getFilteredAppointments(userRole, currentUser);
+  const upcomingAppointmentsList = filteredAppointments.map((apt, index) => {
     const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     return {
       id: apt.id,
