@@ -26,6 +26,16 @@ export default function DashboardLayout({ children, title }) {
       icon: <LayoutDashboard size={18} />,
     },
     {
+      name: "All Doctors",
+      path: "/dashboard/doctors",
+      icon: <Heart size={18} />,
+    },
+    {
+      name: "All Appointments",
+      path: "/dashboard/appointments",
+      icon: <Calendar size={18} />,
+    },
+    {
       name: "Patient Records",
       path: "/dashboard/records",
       icon: <FileText size={18} />,
@@ -132,24 +142,27 @@ export default function DashboardLayout({ children, title }) {
             </div>
           </div>
 
-          <div className="flex items-center space-x-5 text-sm flex-shrink-0">
-            <button className="flex items-center space-x-1 text-gray-600 font-medium">
-              <span>EN</span>
-              <span className="text-xs">∨</span>
-            </button>
-            <button className="relative p-1 text-gray-500 hover:text-gray-700">
+          <div className="flex items-center space-x-6 text-sm flex-shrink-0">
+            {/* Language Selector */}
+            <div className="flex items-center space-x-1 px-3 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer">
+              <span className="text-gray-700 font-medium">EN</span>
+              <span className="text-xs text-gray-500">▾</span>
+            </div>
+
+            {/* Notification Bell with Badge */}
+            <button className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
               <Bell className="w-5 h-5" />
-              <span className="absolute top-[2px] right-[2px] w-2 h-2 bg-red-400 rounded-full border-2 border-white"></span>
+              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white shadow-sm"></span>
             </button>
-            <div className="flex items-center space-x-3 pl-3">
-              <img
-                src={user.avatar}
-                alt="Profile"
-                className="w-10 h-10 rounded-full object-cover border border-gray-100"
-              />
-              <span className="font-semibold text-[15px] text-[#1a1a1a]">
-                {user.name}
-              </span>
+
+            {/* User Info without Avatar */}
+            <div className="flex items-center space-x-2 pl-3 border-l border-gray-200">
+              <div className="text-right">
+                <p className="font-semibold text-[15px] text-[#1a1a1a] leading-tight">
+                  {user.name}
+                </p>
+                <p className="text-xs text-gray-400">Patient</p>
+              </div>
             </div>
           </div>
         </header>

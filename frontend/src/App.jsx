@@ -8,6 +8,8 @@ import OnlineConsult from "./pages/Dashboard/OnlineConsult";
 import Profile from "./pages/Dashboard/Profile";
 import CalendarView from "./pages/Dashboard/Calendar";
 import Help from "./pages/Dashboard/Help";
+import AllDoctors from "./pages/Dashboard/AllDoctors";
+import AllAppointments from "./pages/Dashboard/AllAppointments";
 
 function App() {
   return (
@@ -16,6 +18,8 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/dashboard" element={<DashboardHome />} />
+        <Route path="/dashboard/doctors" element={<AllDoctors />} />
+        <Route path="/dashboard/appointments" element={<AllAppointments />} />
         <Route path="/dashboard/records" element={<PatientRecords />} />
         <Route path="/dashboard/consult" element={<OnlineConsult />} />
         <Route path="/dashboard/profile" element={<Profile />} />

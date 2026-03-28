@@ -4,6 +4,7 @@ import DashboardLayout from '../../components/Layout/DashboardLayout';
 import Modal from '../../components/Modal';
 import { LoadingSpinner, DoctorCardSkeleton, BannerSkeleton } from '../../components/LoadingSkeletons';
 import mockData from '../../data/mockData.json';
+import { getSpecialtyIcon, getSpecialtyBgColor } from '../../utils/medicalIcons';
 
 export default function DashboardHome() {
   const [activeDot, setActiveDot] = useState(0);
@@ -11,6 +12,9 @@ export default function DashboardHome() {
   const [appointmentsFilter, setAppointmentsFilter] = useState('upcoming');
   const [isCalendarOpen, setIsCalendarOpen] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
   
   // Modal states
   const [bookingModal, setBookingModal] = useState(false);
@@ -25,11 +29,62 @@ export default function DashboardHome() {
   const [doctorDetailsModal, setDoctorDetailsModal] = useState(false);
   const [selectedDoctorDetails, setSelectedDoctorDetails] = useState(null);
 
+  // Banner messages
+  const bannerMessages = [
+    {
+      title: "No need to visit local hospitals",
+      subtitle: "Get your consultation online",
+      description: "Audio/text/video/in-person across Rwanda",
+      color: "bg-[#649aa8]"
+    },
+    {
+      title: "Quality Healthcare at Your Fingertips",
+      subtitle: "Connect with Rwanda's best doctors",
+      description: "Available 24/7 for emergencies and consultations",
+      color: "bg-[#389cb4]"
+    },
+    {
+      title: "Affordable Medical Care",
+      subtitle: "Transparent pricing, no hidden fees",
+      description: "Quality healthcare that fits your budget",
+      color: "bg-[#4ba5be]"
+    }
+  ];
+
+  // Auto-rotate banner
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveDot((prev) => (prev + 1) % bannerMessages.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, []);
+
   // Simulate loading
   useEffect(() => {
     const timer = setTimeout(() => setLoading(false), 800);
     return () => clearTimeout(timer);
   }, []);
+
+  // Search functionality
+  useEffect(() => {
+    if (searchTerm.trim() === '') {
+      setShowSearchResults(false);
+      setSearchResults([]);
+      return;
+    }
+
+    const filtered = mockData.doctors.filter(doctor => {
+      const lowerSearch = searchTerm.toLowerCase();
+      return (
+        doctor.name.toLowerCase().includes(lowerSearch) ||
+        doctor.specialty.toLowerCase().includes(lowerSearch) ||
+        doctor.hospital.toLowerCase().includes(lowerSearch)
+      );
+    }).slice(0, 5); // Limit to 5 results
+
+    setSearchResults(filtered);
+    setShowSearchResults(true);
+  }, [searchTerm]);
 
   const handleBookAppointment = (doctor) => {
     setSelectedDoctorForBooking(doctor);
@@ -56,29 +111,7 @@ export default function DashboardHome() {
   };
   
   // Use mock data
-  const recommendedDoctors = mockData.doctors.map(doc => ({
-    ...doc,
-    icon: doc.specialty.includes('Cardiologist') ? '💓' : 
-          doc.specialty.includes('Pediatrician') ? '👶' :
-          doc.specialty.includes('Obstetrician') ? '🤰' :
-          doc.specialty.includes('Surgeon') ? '🔪' :
-          doc.specialty.includes('Dermatologist') ? '🔴' :
-          doc.specialty.includes('Psychiatrist') ? '🧠' :
-          doc.specialty.includes('Orthopedist') ? '🦴' :
-          doc.specialty.includes('Ophthalmologist') ? '👁️' :
-          doc.specialty.includes('Gastroenterologist') ? '🍽️' :
-          doc.specialty.includes('Neurologist') ? '🧠' :
-          doc.specialty.includes('ENT') ? '👂' :
-          doc.specialty.includes('Pharmacist') ? '💊' :
-          doc.specialty.includes('Pulmonologist') ? '💨' :
-          doc.specialty.includes('Radiologist') ? '🖼️' :
-          doc.specialty.includes('Anesthesiologist') ? '💉' :
-          doc.specialty.includes('Infectious') ? '🦠' :
-          doc.specialty.includes('Urologist') ? '🚽' :
-          doc.specialty.includes('Rheumatologist') ? '🦴' :
-          doc.specialty.includes('Hematologist') ? '🩸' :
-          '🩺'
-  })) || [];
+  const recommendedDoctors = mockData.doctors || [];
   
   // Format appointments from mockData to match the design visually
   const upcomingAppointmentsList = (mockData.appointments || []).map((apt, index) => {
@@ -106,8 +139,7 @@ export default function DashboardHome() {
       hospital: "King Faisal Hospital",
       fee: "35000 RWF",
       experience: "12 years",
-      languages: ["Kinyarwanda", "English", "French"],
-      icon: "💓"
+      languages: ["Kinyarwanda", "English", "French"]
     },
     {
       id: 102,
@@ -119,8 +151,7 @@ export default function DashboardHome() {
       hospital: "Kigali Central Hospital",
       fee: "28000 RWF",
       experience: "8 years",
-      languages: ["Kinyarwanda", "English"],
-      icon: "👶"
+      languages: ["Kinyarwanda", "English"]
     },
     {
       id: 103,
@@ -132,8 +163,7 @@ export default function DashboardHome() {
       hospital: "Rwanda Medical Center",
       fee: "40000 RWF",
       experience: "11 years",
-      languages: ["Kinyarwanda", "English", "French"],
-      icon: "🤰"
+      languages: ["Kinyarwanda", "English", "French"]
     }
   ];
 
@@ -161,36 +191,56 @@ export default function DashboardHome() {
         {/* Left Column (Main content) */}
         <div className="flex-1 flex flex-col gap-6">
           
-          {/* Banner */}
-          <div className="relative bg-[#649aa8] rounded-2xl overflow-hidden p-8 text-white h-[240px] flex flex-col justify-center cursor-pointer hover:shadow-lg transition-shadow group">
-            {/* Background pattern elements */}
-            <div className="absolute right-0 top-0 w-[400px] h-[400px] bg-white opacity-10 rounded-full blur-[80px] translate-x-1/3 -translate-y-1/3"></div>
-            <div className="absolute right-0 bottom-0 w-[200px] h-[200px] shadow-[inset_0_0_50px_rgba(255,255,255,0.2)] rounded-full mix-blend-overlay border border-white/20 translate-x-[20%] translate-y-[20%] scale-150"></div>
-            <div className="absolute right-[80px] bottom-[20px] w-[300px] h-[300px] border-[0.5px] border-white/20 rounded-full scale-[1.8] mix-blend-overlay"></div>
-            <div className="absolute right-[100px] bottom-[40px] w-[200px] h-[200px] border-[0.5px] border-white/20 rounded-full scale-[1.8] mix-blend-overlay"></div>
-            
-            <div className="relative z-10 group-hover:translate-y-[-5px] transition-transform duration-200">
-              <h2 className="text-3xl font-bold mb-2">No need to visit local hospitals<br/>Get your consultation online</h2>
-              <p className="text-white/80 text-lg mb-8">Audio/text/video/in-person across Rwanda</p>
-              
-              <div className="flex items-center">
-                <div className="flex -space-x-2 mr-3">
-                  <img src="https://randomuser.me/api/portraits/women/44.jpg" alt="" className="w-8 h-8 rounded-full border-2 border-[#649aa8] z-30" />
-                  <img src="https://randomuser.me/api/portraits/men/45.jpg" alt="" className="w-8 h-8 rounded-full border-2 border-[#649aa8] z-20" />
-                  <img src="https://randomuser.me/api/portraits/women/45.jpg" alt="" className="w-8 h-8 rounded-full border-2 border-[#649aa8] z-10" />
+          {/* Animated Banner Carousel */}
+          <div className="relative rounded-2xl overflow-hidden h-[240px] flex flex-col justify-center cursor-pointer group">
+            {/* Banner slides */}
+            {bannerMessages.map((banner, idx) => (
+              <div
+                key={idx}
+                className={`absolute inset-0 ${banner.color} transition-opacity duration-700 ${
+                  activeDot === idx ? 'opacity-100' : 'opacity-0'
+                }`}
+              >
+                {/* Background pattern elements */}
+                <div className="absolute right-0 top-0 w-[400px] h-[400px] bg-white opacity-10 rounded-full blur-[80px] translate-x-1/3 -translate-y-1/3 animate-pulse"></div>
+                <div className="absolute right-0 bottom-0 w-[200px] h-[200px] shadow-[inset_0_0_50px_rgba(255,255,255,0.2)] rounded-full mix-blend-overlay border border-white/20 translate-x-[20%] translate-y-[20%] scale-150"></div>
+                <div className="absolute right-[80px] bottom-[20px] w-[300px] h-[300px] border-[0.5px] border-white/20 rounded-full scale-[1.8] mix-blend-overlay"></div>
+              </div>
+            ))}
+
+            {/* Content overlay */}
+            <div className="relative z-10 p-8 text-white">
+              <div className={`group-hover:translate-y-[-5px] transition-transform duration-200 ${activeDot === 0 ? 'animate-slideInLeft' : ''}`}>
+                <h2 className="text-3xl font-bold mb-2">
+                  {bannerMessages[activeDot].title}
+                </h2>
+                <p className="text-white/80 text-lg mb-8">
+                  {bannerMessages[activeDot].description}
+                </p>
+                
+                <div className="flex items-center">
+                  <div className="flex space-x-2 mr-4 animate-pulse">
+                    <div className="w-3 h-3 rounded-full bg-white/60"></div>
+                    <div className="w-3 h-3 rounded-full bg-white/60"></div>
+                    <div className="w-3 h-3 rounded-full bg-white/60"></div>
+                  </div>
+                  <span className="text-white/90 text-sm font-medium">+180 doctors are online in Rwanda</span>
                 </div>
-                <span className="text-white/90 text-sm font-medium">+180 doctors are online in Rwanda</span>
               </div>
             </div>
           </div>
           
-          {/* Banner Dots */}
-          <div className="flex justify-center space-x-1.5 -mt-3 mb-2">
-            {[0, 1, 2].map(dotIndex => (
+          {/* Banner Navigation Dots */}
+          <div className="flex justify-center space-x-2">
+            {bannerMessages.map((_, dotIndex) => (
               <button 
                 key={dotIndex}
                 onClick={() => setActiveDot(dotIndex)}
-                className={`w-1.5 h-1.5 rounded-full transition-colors ${activeDot === dotIndex ? 'bg-[#389cb4]' : 'bg-gray-300 hover:bg-gray-400'}`}
+                className={`h-2 rounded-full transition-all duration-300 ${
+                  activeDot === dotIndex 
+                    ? 'bg-[#389cb4] w-6' 
+                    : 'bg-gray-300 hover:bg-gray-400 w-2'
+                }`}
                 aria-label={`Go to slide ${dotIndex + 1}`}
               ></button>
             ))}
@@ -204,34 +254,38 @@ export default function DashboardHome() {
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {nearbyDoctors.map(doctor => (
-                <div 
-                  key={doctor.id} 
-                  onClick={() => openDoctorDetails(doctor)}
-                  className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm hover:shadow-md hover:border-teal-200 transition-all cursor-pointer group"
-                >
-                  <div className="flex items-center space-x-3 mb-4">
-                    <div className="w-16 h-12 rounded-lg bg-gradient-to-br from-teal-100 to-blue-100 flex items-center justify-center text-3xl group-hover:scale-110 transition">
-                      {doctor.icon}
+              {nearbyDoctors.map(doctor => {
+                const bgColor = getSpecialtyBgColor(doctor.specialty);
+                const icon = getSpecialtyIcon(doctor.specialty);
+                return (
+                  <div 
+                    key={doctor.id} 
+                    onClick={() => openDoctorDetails(doctor)}
+                    className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm hover:shadow-md hover:border-teal-200 transition-all cursor-pointer group"
+                  >
+                    <div className="flex items-center space-x-3 mb-4">
+                      <div className={`w-16 h-12 rounded-lg bg-gradient-to-br ${bgColor} flex items-center justify-center text-3xl group-hover:scale-110 transition`}>
+                        {icon}
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-gray-800 text-sm group-hover:text-teal-600 transition">{doctor.name}</h4>
+                        <p className="text-xs text-gray-500">{doctor.specialty}</p>
+                        <div className="flex items-center mt-1">
+                          <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                          <span className="text-xs text-gray-600 ml-1">{doctor.rating}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="font-bold text-gray-800 text-sm group-hover:text-teal-600 transition">{doctor.name}</h4>
-                      <p className="text-xs text-gray-500">{doctor.specialty}</p>
-                      <div className="flex items-center mt-1">
-                        <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                        <span className="text-xs text-gray-600 ml-1">{doctor.rating}</span>
+                    <div className="flex items-start text-gray-500 text-xs mt-2 pt-3 border-t border-gray-50">
+                      <MapPin className="w-3.5 h-3.5 mr-1 flex-shrink-0 mt-0.5 text-gray-400" />
+                      <div>
+                        <span className="font-medium text-gray-600 block mb-0.5">{doctor.distance}</span>
+                        <span className="text-gray-400">{doctor.address}</span>
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-start text-gray-500 text-xs mt-2 pt-3 border-t border-gray-50">
-                    <MapPin className="w-3.5 h-3.5 mr-1 flex-shrink-0 mt-0.5 text-gray-400" />
-                    <div>
-                      <span className="font-medium text-gray-600 block mb-0.5">{doctor.distance}</span>
-                      <span className="text-gray-400">{doctor.address}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -243,66 +297,70 @@ export default function DashboardHome() {
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {recommendedDoctors.slice(0, 6).map((doctor) => (
-                <div 
-                  key={doctor.id} 
-                  className="bg-white border rounded-2xl p-5 text-left flex flex-col hover:border-teal-100 hover:shadow-md transition-all group"
-                >
-                  <div className="flex items-center space-x-3 mb-4">
-                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-teal-100 to-blue-100 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
-                      {doctor.icon || "🩺"}
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-bold text-gray-800 group-hover:text-teal-600 transition cursor-pointer" onClick={() => openDoctorDetails(doctor)}>
-                        {doctor.name}
-                      </h4>
-                      <p className="text-xs text-gray-400 mt-0.5">{doctor.experience}</p>
-                      <div className="flex items-center mt-1">
-                        <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                        <span className="text-xs text-gray-600 ml-1">{doctor.rating}</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <span className="inline-block px-2.5 py-1 bg-teal-50 text-teal-600 text-[10px] font-medium rounded-md mb-3 w-fit">
-                    {doctor.specialty}
-                  </span>
-                  
-                  <div className="flex justify-between items-center text-xs text-gray-600 border-t border-gray-100 pt-4 pb-4">
-                    <div className="flex items-center space-x-1.5">
-                      <Clock className="w-4 h-4 text-gray-400" />
-                      <div>
-                        <div className="font-medium text-gray-700 text-[11px]">Mon-Fri</div>
-                        <div className="text-[10px] text-gray-400">08:00-17:00</div>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-1.5">
-                      <CreditCard className="w-4 h-4 text-gray-400" />
-                      <div>
-                        <div className="font-medium text-gray-700">{doctor.fee.replace(' RWF', '').replace(/,/g, '')}</div>
-                        <div className="text-[10px] text-gray-400">RWF</div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <button 
-                    onClick={() => handleBookAppointment(doctor)}
-                    disabled={bookedDoctors[doctor.id]}
-                    className={`w-full py-2.5 rounded-lg text-sm font-medium transition-all mt-auto flex items-center justify-center gap-2 ${
-                      bookedDoctors[doctor.id] 
-                        ? 'bg-green-50 text-green-600 cursor-not-allowed border border-green-200' 
-                        : 'bg-[#389cb4] hover:bg-[#328c9f] text-white cursor-pointer shadow-sm hover:shadow-md'
-                    }`}
+              {recommendedDoctors.slice(0, 6).map((doctor) => {
+                const bgColor = getSpecialtyBgColor(doctor.specialty);
+                const icon = getSpecialtyIcon(doctor.specialty);
+                return (
+                  <div 
+                    key={doctor.id} 
+                    className="bg-white border rounded-2xl p-5 text-left flex flex-col hover:border-teal-100 hover:shadow-md transition-all group"
                   >
-                    {bookedDoctors[doctor.id] ? (
-                      <>
-                        <CheckCircle className="w-4 h-4" />
-                        Booked
-                      </>
-                    ) : 'Book appointment'}
-                  </button>
-                </div>
-              ))}
+                    <div className="flex items-center space-x-3 mb-4">
+                      <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${bgColor} flex items-center justify-center text-2xl group-hover:scale-110 transition-transform`}>
+                        {icon}
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-bold text-gray-800 group-hover:text-teal-600 transition cursor-pointer" onClick={() => openDoctorDetails(doctor)}>
+                          {doctor.name}
+                        </h4>
+                        <p className="text-xs text-gray-400 mt-0.5">{doctor.experience}</p>
+                        <div className="flex items-center mt-1">
+                          <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                          <span className="text-xs text-gray-600 ml-1">{doctor.rating}</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <span className="inline-block px-2.5 py-1 bg-teal-50 text-teal-600 text-[10px] font-medium rounded-md mb-3 w-fit">
+                      {doctor.specialty}
+                    </span>
+                    
+                    <div className="flex justify-between items-center text-xs text-gray-600 border-t border-gray-100 pt-4 pb-4">
+                      <div className="flex items-center space-x-1.5">
+                        <Clock className="w-4 h-4 text-gray-400" />
+                        <div>
+                          <div className="font-medium text-gray-700 text-[11px]">Mon-Fri</div>
+                          <div className="text-[10px] text-gray-400">08:00-17:00</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-1.5">
+                        <CreditCard className="w-4 h-4 text-gray-400" />
+                        <div>
+                          <div className="font-medium text-gray-700">{doctor.fee.replace(' RWF', '').replace(/,/g, '')}</div>
+                          <div className="text-[10px] text-gray-400">RWF</div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <button 
+                      onClick={() => handleBookAppointment(doctor)}
+                      disabled={bookedDoctors[doctor.id]}
+                      className={`w-full py-2.5 rounded-lg text-sm font-medium transition-all mt-auto flex items-center justify-center gap-2 ${
+                        bookedDoctors[doctor.id] 
+                          ? 'bg-green-50 text-green-600 cursor-not-allowed border border-green-200' 
+                          : 'bg-[#389cb4] hover:bg-[#328c9f] text-white cursor-pointer shadow-sm hover:shadow-md'
+                      }`}
+                    >
+                      {bookedDoctors[doctor.id] ? (
+                        <>
+                          <CheckCircle className="w-4 h-4" />
+                          Booked
+                        </>
+                      ) : 'Book appointment'}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </div>
           
