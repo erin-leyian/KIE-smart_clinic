@@ -128,8 +128,8 @@ const handleQueue = async (phone) => {
 
     const patient = patients[0];
     const [queueEntries] = await pool.query(
-      'SELECT * FROM QueueEntry WHERE PatientID = ? AND Status = "Waiting" ORDER BY PositionInQueue ASC',
-      [patient.PatientID]
+      'SELECT * FROM QueueEntry WHERE PatientID = ? AND Status = ? ORDER BY PositionInQueue ASC',
+      [patient.PatientID, 'Waiting']
     );
 
     if (queueEntries.length === 0) {
@@ -162,9 +162,9 @@ const handleCancel = async (phone) => {
 
     const patient = patients[0];
     const [appointments] = await pool.query(
-      'SELECT * FROM Appointment WHERE PatientID = ? AND Status = "Pending" ORDER BY AppointmentDate ASC, AppointmentTime ASC LIMIT 1',
-      [patient.PatientID]
-    );
+  'SELECT * FROM Appointment WHERE PatientID = ? AND Status = ? ORDER BY AppointmentDate ASC, AppointmentTime ASC LIMIT 1',
+  [patient.PatientID, 'Pending']
+);
 
     if (appointments.length === 0) {
       return `${patient.FirstName} ${patient.LastName}, you have no upcoming appointments to cancel.`;
