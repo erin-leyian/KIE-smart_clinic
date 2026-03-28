@@ -33,9 +33,9 @@ export default function Layout() {
   }, [navigate]);
 
   const [currentUser, setCurrentUser] = useState({
-    name: 'Stevan dux',
-    email: 'stevan.dux@gmail.com',
-    role: 'Admin',
+    name: localStorage.getItem('name') || 'User',
+    email: localStorage.getItem('email') || '',
+    role: localStorage.getItem('role') || 'Staff',
     img: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=150&h=150'
   });
 
