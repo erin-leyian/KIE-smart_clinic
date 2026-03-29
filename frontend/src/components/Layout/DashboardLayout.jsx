@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import mockData from "../../data/mockData.json";
+import NotificationPanel from "../NotificationPanel";
 import {
   LayoutDashboard,
   FileText,
@@ -23,7 +24,15 @@ export default function DashboardLayout({ children, title }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [languageDropdown, setLanguageDropdown] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState("EN");
+  const [currentUser, setCurrentUser] = useState(null);
   const languages = ["EN", "FR", "RW"];
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      setCurrentUser(JSON.parse(storedUser));
+    }
+  }, []);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -33,48 +42,115 @@ export default function DashboardLayout({ children, title }) {
     }
   };
 
-  const navItems = [
-    {
-      name: "Dashboard",
-      path: "/dashboard",
-      icon: <LayoutDashboard size={18} />,
-    },
-    {
-      name: "All Doctors",
-      path: "/dashboard/doctors",
-      icon: <Heart size={18} />,
-    },
-    {
-      name: "All Appointments",
-      path: "/dashboard/appointments",
-      icon: <Calendar size={18} />,
-    },
-    {
-      name: "Patient Records",
-      path: "/dashboard/records",
-      icon: <FileText size={18} />,
-    },
-    {
-      name: "Calendar",
-      path: "/dashboard/calendar",
-      icon: <Calendar size={18} />,
-    },
-    {
-      name: "Profile",
-      path: "/dashboard/profile",
-      icon: <User size={18} />,
-    },
-    {
-      name: "Online Consult",
-      path: "/dashboard/consult",
-      icon: <Monitor size={18} />,
-    },
-    { name: "Help", path: "/dashboard/help", icon: <HelpCircle size={18} /> },
-  ];
+  // Role-based navigation items
+  const getNavItems = (role) => {
+    const commonItems = [
+      {
+        name: "Notifications",
+        path: "/dashboard/notifications",
+        icon: <Bell size={18} />,
+      },
+      {
+        name: "Profile",
+        path: "/dashboard/profile",
+        icon: <User size={18} />,
+      },
+      { name: "Help", path: "/dashboard/help", icon: <HelpCircle size={18} /> },
+    ];
 
-  const user = mockData.users?.[0] || {
-    name: "Stevan dux",
+    if (role === 'patient') {
+      return [
+        {
+          name: "Dashboard",
+          path: "/dashboard",
+          icon: <LayoutDashboard size={18} />,
+        },
+        {
+          name: "All Doctors",
+          path: "/dashboard/doctors",
+          icon: <Heart size={18} />,
+        },
+        {
+          name: "My Appointments",
+          path: "/dashboard/appointments",
+          icon: <Calendar size={18} />,
+        },
+        {
+          name: "Patient Records",
+          path: "/dashboard/records",
+          icon: <FileText size={18} />,
+        },
+        ...commonItems,
+      ];
+    }
+
+    if (role === 'doctor') {
+      return [
+        {
+          name: "Dashboard",
+          path: "/dashboard/doctor",
+          icon: <LayoutDashboard size={18} />,
+        },
+        {
+          name: "My Appointments",
+          path: "/dashboard/doctor/appointments",
+          icon: <Calendar size={18} />,
+        },
+        {
+          name: "Patient Records",
+          path: "/dashboard/records",
+          icon: <FileText size={18} />,
+        },
+        ...commonItems,
+      ];
+    }
+
+    if (role === 'admin') {
+      return [
+        {
+          name: "Dashboard",
+          path: "/dashboard/admin",
+          icon: <LayoutDashboard size={18} />,
+        },
+        {
+          name: "All Doctors",
+          path: "/dashboard/doctors",
+          icon: <Heart size={18} />,
+        },
+        {
+          name: "All Appointments",
+          path: "/dashboard/appointments",
+          icon: <Calendar size={18} />,
+        },
+        {
+          name: "All Records",
+          path: "/dashboard/records",
+          icon: <FileText size={18} />,
+        },
+        {
+          name: "System Settings",
+          path: "/dashboard/admin/settings",
+          icon: <Settings size={18} />,
+        },
+        ...commonItems,
+      ];
+    }
+
+    return commonItems;
+  };
+
+  const navItems = getNavItems(currentUser?.role || 'patient');
+
+  const user = currentUser || mockData.users?.[0] || {
+    name: "User",
     avatar: "https://randomuser.me/api/portraits/men/32.jpg",
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    localStorage.removeItem('userRole');
+    navigate('/auth');
   };
 
   return (
@@ -106,13 +182,13 @@ export default function DashboardLayout({ children, title }) {
           ))}
         </nav>
         <div className="p-4 border-t">
-          <Link
-            to="/"
-            className="flex items-center space-x-3 px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg"
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center space-x-3 px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
           >
             <LogOut size={18} />
             <span>Logout</span>
-          </Link>
+          </button>
         </div>
       </aside>
 
@@ -184,10 +260,7 @@ export default function DashboardLayout({ children, title }) {
             </div>
 
             {/* Notification Bell with Badge */}
-            <button className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white shadow-sm animate-pulse"></span>
-            </button>
+            <NotificationPanel />
 
             {/* User Info without Avatar */}
             <div className="flex items-center space-x-2 pl-3 border-l border-gray-200">
@@ -195,7 +268,9 @@ export default function DashboardLayout({ children, title }) {
                 <p className="font-semibold text-[15px] text-[#1a1a1a] leading-tight">
                   {user.name}
                 </p>
-                <p className="text-xs text-gray-400">Patient</p>
+                <p className="text-xs text-gray-400">
+                  {currentUser?.role ? currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1) : 'Patient'}
+                </p>
               </div>
             </div>
           </div>

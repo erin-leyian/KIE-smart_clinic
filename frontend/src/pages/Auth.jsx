@@ -47,7 +47,16 @@ export default function Auth() {
 
         localStorage.setItem("user", JSON.stringify(user));
         localStorage.setItem("token", "dummy-mock-token-12345");
-        navigate("/dashboard");
+        localStorage.setItem("userRole", user.role);
+        
+        // Route based on user role
+        if (user.role === "doctor") {
+          navigate("/dashboard/doctor");
+        } else if (user.role === "admin") {
+          navigate("/dashboard/admin");
+        } else {
+          navigate("/dashboard");
+        }
       } else {
         // Mock Signup
         const newUser = {

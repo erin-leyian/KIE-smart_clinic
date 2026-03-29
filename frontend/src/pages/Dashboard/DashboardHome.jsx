@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Clock, CreditCard, ChevronLeft, ChevronRight, Calendar as CalendarIcon, ChevronUp, CheckCircle, Star, Phone, MessageSquare, Video, Stethoscope, AlertCircle } from 'lucide-react';
+import { MapPin, Clock, CreditCard, ChevronLeft, ChevronRight, Calendar as CalendarIcon, ChevronUp, CheckCircle, Star, Phone, MessageSquare, Video, Stethoscope, AlertCircle, RotateCcw } from 'lucide-react';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import Modal from '../../components/Modal';
 import { LoadingSpinner, DoctorCardSkeleton, BannerSkeleton } from '../../components/LoadingSkeletons';
 import mockData from '../../data/mockData.json';
 import { getIconComponent, getSpecialtyBgColor } from '../../utils/medicalIcons';
+import { safeFetch, formatErrorMessage, loadMockData } from '../../utils/errorHandler';
+import { getCurrentUser, getUserRole, getFilteredAppointments, getUpcomingAppointments } from '../../utils/dataAccessControl';
 
 export default function DashboardHome() {
   const navigate = useNavigate();
@@ -14,9 +16,12 @@ export default function DashboardHome() {
   const [appointmentsFilter, setAppointmentsFilter] = useState('upcoming');
   const [isCalendarOpen, setIsCalendarOpen] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [userRole, setUserRole] = useState('patient');
   
   // Modal states
   const [bookingModal, setBookingModal] = useState(false);
@@ -61,10 +66,39 @@ export default function DashboardHome() {
     return () => clearInterval(timer);
   }, []);
 
-  // Simulate loading
+  // Simulate loading with error handling
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 800);
-    return () => clearTimeout(timer);
+    const loadDashboardData = async () => {
+      try {
+        setLoading(true);
+        setError('');
+        
+        // Get current user
+        const user = getCurrentUser();
+        const role = getUserRole();
+        setCurrentUser(user);
+        setUserRole(role);
+        
+        // Simulate loading delay
+        await new Promise(resolve => setTimeout(resolve, 800));
+        
+        // Validate mock data structure
+        if (!mockData.doctors || !Array.isArray(mockData.doctors)) {
+          throw new Error('Doctor data is missing or invalid');
+        }
+        if (!mockData.appointments || !Array.isArray(mockData.appointments)) {
+          throw new Error('Appointment data is missing or invalid');
+        }
+        
+        setLoading(false);
+      } catch (err) {
+        const errorMessage = formatErrorMessage(err);
+        setError(errorMessage);
+        setLoading(false);
+      }
+    };
+    
+    loadDashboardData();
   }, []);
 
   // Search functionality
@@ -87,6 +121,37 @@ export default function DashboardHome() {
     setSearchResults(filtered);
     setShowSearchResults(true);
   }, [searchTerm]);
+
+  // Retry loading data
+  const handleRetryLoadData = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      // Get current user
+      const user = getCurrentUser();
+      const role = getUserRole();
+      setCurrentUser(user);
+      setUserRole(role);
+      
+      // Simulate loading delay
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // Validate mock data structure
+      if (!mockData.doctors || !Array.isArray(mockData.doctors)) {
+        throw new Error('Doctor data is missing or invalid');
+      }
+      if (!mockData.appointments || !Array.isArray(mockData.appointments)) {
+        throw new Error('Appointment data is missing or invalid');
+      }
+      
+      setLoading(false);
+    } catch (err) {
+      const errorMessage = formatErrorMessage(err);
+      setError(errorMessage);
+      setLoading(false);
+    }
+  };
 
   const handleBookAppointment = (doctor) => {
     setSelectedDoctorForBooking(doctor);
@@ -112,11 +177,12 @@ export default function DashboardHome() {
     setDoctorDetailsModal(true);
   };
   
-  // Use mock data
+  // Use mock data with role-based filtering
   const recommendedDoctors = mockData.doctors || [];
   
-  // Format appointments from mockData to match the design visually
-  const upcomingAppointmentsList = (mockData.appointments || []).map((apt, index) => {
+  // Format filtered appointments to match the design visually
+  const filteredAppointments = getFilteredAppointments(userRole, currentUser);
+  const upcomingAppointmentsList = filteredAppointments.map((apt, index) => {
     const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     return {
       id: apt.id,
@@ -129,45 +195,12 @@ export default function DashboardHome() {
     };
   }).slice(0, 4);
 
-  // Rwanda-based nearby doctors
-  const nearbyDoctors = [
-    {
-      id: 101,
-      name: "Dr. Sylvain Uwizeye",
-      specialty: "Cardiologist",
-      distance: "0.5 km",
-      address: "King Faisal Hospital, Kigali",
-      rating: 4.8,
-      hospital: "King Faisal Hospital",
-      fee: "35000 RWF",
-      experience: "12 years",
-      languages: ["Kinyarwanda", "English", "French"]
-    },
-    {
-      id: 102,
-      name: "Dr. Marie Ikirezi",
-      specialty: "Pediatrician",
-      distance: "1.2 km",
-      address: "Kigali Central Hospital",
-      rating: 4.7,
-      hospital: "Kigali Central Hospital",
-      fee: "28000 RWF",
-      experience: "8 years",
-      languages: ["Kinyarwanda", "English"]
-    },
-    {
-      id: 103,
-      name: "Dr. Grace Mukantabana",
-      specialty: "Obstetrician",
-      distance: "2.1 km",
-      address: "Rwanda Medical Center",
-      rating: 4.8,
-      hospital: "Rwanda Medical Center",
-      fee: "40000 RWF",
-      experience: "11 years",
-      languages: ["Kinyarwanda", "English", "French"]
-    }
-  ];
+  // Nearby doctors from mockData (first 3 doctors)
+  const nearbyDoctors = mockData.doctors.slice(0, 3).map(doctor => ({
+    ...doctor,
+    distance: "0.5 km",
+    address: doctor.hospital
+  }));
 
   if (loading) {
     return (
@@ -188,6 +221,27 @@ export default function DashboardHome() {
 
   return (
     <DashboardLayout title="Dashboard">
+      {/* Error Banner */}
+      {error && (
+        <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-start justify-between">
+          <div className="flex items-start space-x-3">
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-semibold text-red-800">Error Loading Dashboard</h3>
+              <p className="text-red-700 text-sm mt-1">{error}</p>
+            </div>
+          </div>
+          <button
+            onClick={handleRetryLoadData}
+            className="flex items-center space-x-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors flex-shrink-0"
+            title="Retry loading data"
+          >
+            <RotateCcw className="w-4 h-4" />
+            <span className="text-sm">Retry</span>
+          </button>
+        </div>
+      )}
+      
       <div className="flex flex-col lg:flex-row gap-6 max-w-7xl mx-auto">
         
         {/* Left Column (Main content) */}
@@ -252,7 +306,12 @@ export default function DashboardHome() {
           <div>
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold text-gray-800">Nearby Doctors in Kigali</h3>
-              <button className="text-[#389cb4] text-sm font-semibold hover:underline">View All &gt;</button>
+              <button 
+                onClick={() => navigate('/dashboard/doctors')}
+                className="text-[#389cb4] text-sm font-semibold hover:underline transition-colors hover:text-[#328c9f]"
+              >
+                View All &gt;
+              </button>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -295,7 +354,12 @@ export default function DashboardHome() {
           <div className="mt-2 bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold text-gray-800">Recommended Doctors</h3>
-              <button className="text-[#389cb4] text-sm font-semibold hover:underline">View All &gt;</button>
+              <button 
+                onClick={() => navigate('/dashboard/doctors')}
+                className="text-[#389cb4] text-sm font-semibold hover:underline transition-colors hover:text-[#328c9f]"
+              >
+                View All &gt;
+              </button>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
