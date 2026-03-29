@@ -1,5 +1,6 @@
 -- smart_clinic_schema.sql
--- Database: Smart Clinic Queue & Appointment Optimization System
+-- Database: Smart Clinic Management System
+-- Aligned with API documentation v1.0
 
 CREATE DATABASE IF NOT EXISTS smart_clinic_db 
 CHARACTER SET utf8mb4 
@@ -7,115 +8,183 @@ COLLATE utf8mb4_unicode_ci;
 
 USE smart_clinic_db;
 
--- Ensure consistent timezone (UTC) for sync across devices
+-- Ensure consistent timezone (UTC)
 SET TIME_ZONE = '+00:00';
 
--- Strict mode for better data integrity
+-- Strict mode for data integrity
 SET sql_mode = 'STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION';
 
--- 1. Clinic
-CREATE TABLE Clinic (
-    ClinicID       INT AUTO_INCREMENT PRIMARY KEY,
-    Name           VARCHAR(100) NOT NULL,
-    Location       VARCHAR(150),
-    ContactPhone   VARCHAR(20),
-    CreatedAt      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UpdatedAt      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+-- 1. Users Table (Patient, Doctor, Admin)
+CREATE TABLE users (
+    id VARCHAR(36) PRIMARY KEY,
+    firstName VARCHAR(100) NOT NULL,
+    lastName VARCHAR(100) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    role ENUM('patient', 'doctor', 'admin') NOT NULL DEFAULT 'patient',
+    phone VARCHAR(20),
+    dateOfBirth DATE,
+    gender ENUM('male', 'female', 'other'),
+    address VARCHAR(255),
+    city VARCHAR(100),
+    state VARCHAR(100),
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    KEY idx_email (email),
+    KEY idx_role (role),
+    KEY idx_createdAt (createdAt)
 );
 
--- 2. ClinicStaff
-CREATE TABLE ClinicStaff (
-    StaffID        INT AUTO_INCREMENT PRIMARY KEY,
-    ClinicID       INT NOT NULL,
-    FirstName      VARCHAR(50) NOT NULL,
-    LastName       VARCHAR(50) NOT NULL,
-    PhoneNumber    VARCHAR(20) UNIQUE,
-    Email          VARCHAR(100) UNIQUE,
-    Role           ENUM('Receptionist', 'Nurse', 'Doctor', 'Admin', 'Other') NOT NULL,
-    PasswordHash   VARCHAR(255) NOT NULL,          -- bcrypt/argon2 in application
-    IsActive       TINYINT(1) DEFAULT 1,            -- soft delete / deactivation
-    CreatedAt      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UpdatedAt      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
-    FOREIGN KEY (ClinicID) REFERENCES Clinic(ClinicID) ON DELETE RESTRICT,
-    INDEX idx_staff_phone (PhoneNumber),
-    INDEX idx_staff_email (Email)
+-- 2. Doctor Specializations Table
+CREATE TABLE doctorSpecializations (
+    id VARCHAR(36) PRIMARY KEY,
+    doctorId VARCHAR(36) NOT NULL UNIQUE,
+    specialization VARCHAR(100) NOT NULL,
+    qualifications VARCHAR(255),
+    yearsOfExperience INT DEFAULT 0,
+    consultationFee DECIMAL(10, 2),
+    consultationDuration INT DEFAULT 30,
+    consultationEnabled BOOLEAN DEFAULT FALSE,
+    rating DECIMAL(3, 2) DEFAULT 0.00,
+    totalConsultations INT DEFAULT 0,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (doctorId) REFERENCES users(id) ON DELETE CASCADE,
+    KEY idx_specialization (specialization)
 );
 
--- 3. Doctor (subset of staff)
-CREATE TABLE Doctor (
-    DoctorID       INT AUTO_INCREMENT PRIMARY KEY,
-    StaffID        INT NOT NULL UNIQUE,
-    Specialization VARCHAR(100),
-    AvailabilityDays VARCHAR(100),                -- e.g. "Mon,Tue,Thu" or JSON
-    CreatedAt      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UpdatedAt      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
-    FOREIGN KEY (StaffID) REFERENCES ClinicStaff(StaffID) ON DELETE CASCADE
+-- 3. Available Hours for Doctors
+CREATE TABLE availableHours (
+    id VARCHAR(36) PRIMARY KEY,
+    doctorId VARCHAR(36) NOT NULL,
+    day VARCHAR(20) NOT NULL,
+    startTime TIME NOT NULL,
+    endTime TIME NOT NULL,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (doctorId) REFERENCES users(id) ON DELETE CASCADE,
+    KEY idx_doctor_day (doctorId, day)
 );
 
--- 4. Patient
-CREATE TABLE Patient (
-    PatientID      INT AUTO_INCREMENT PRIMARY KEY,
-    FirstName      VARCHAR(50) NOT NULL,
-    LastName       VARCHAR(50) NOT NULL,
-    PhoneNumber    VARCHAR(20) UNIQUE NOT NULL,     -- primary contact for SMS
-    Email          VARCHAR(100),
-    DateOfBirth    DATE,
-    Gender         ENUM('Male', 'Female', 'Other', 'Prefer not to say'),
-    Address        TEXT,
-    IsActive       TINYINT(1) DEFAULT 1,
-    CreatedAt      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UpdatedAt      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
-    INDEX idx_patient_phone (PhoneNumber)
+-- 4. Appointments
+CREATE TABLE appointments (
+    id VARCHAR(36) PRIMARY KEY,
+    doctorId VARCHAR(36) NOT NULL,
+    patientId VARCHAR(36) NOT NULL,
+    appointmentDate DATE NOT NULL,
+    appointmentTime TIME NOT NULL,
+    reason VARCHAR(255),
+    notes TEXT,
+    status ENUM('scheduled', 'completed', 'cancelled', 'no-show') DEFAULT 'scheduled',
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (doctorId) REFERENCES users(id) ON DELETE RESTRICT,
+    FOREIGN KEY (patientId) REFERENCES users(id) ON DELETE RESTRICT,
+    KEY idx_appt_date (appointmentDate),
+    KEY idx_appt_status (status),
+    KEY idx_doctor_date (doctorId, appointmentDate),
+    KEY idx_patient_date (patientId, appointmentDate)
 );
 
--- 5. Appointment
-CREATE TABLE Appointment (
-    AppointmentID     INT AUTO_INCREMENT PRIMARY KEY,
-    PatientID         INT NOT NULL,
-    DoctorID          INT NOT NULL,
-    AppointmentDate   DATE NOT NULL,
-    AppointmentTime   TIME NOT NULL,
-    Duration          INT DEFAULT 15,               -- minutes
-    Status            ENUM('Pending', 'Confirmed', 'Cancelled', 'Completed', 'No-Show') DEFAULT 'Pending',
-    BookedAt          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    Notes             TEXT,
-    CreatedAt         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UpdatedAt         TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
-    FOREIGN KEY (PatientID) REFERENCES Patient(PatientID) ON DELETE RESTRICT,
-    FOREIGN KEY (DoctorID) REFERENCES Doctor(DoctorID) ON DELETE RESTRICT,
-
-    INDEX idx_appt_date_time (AppointmentDate, AppointmentTime),
-    UNIQUE INDEX uk_doctor_slot (DoctorID, AppointmentDate, AppointmentTime) COMMENT 'Prevent double-booking'
+-- 5. Patient Records
+CREATE TABLE patientRecords (
+    id VARCHAR(36) PRIMARY KEY,
+    patientId VARCHAR(36) NOT NULL,
+    doctorId VARCHAR(36) NOT NULL,
+    appointmentId VARCHAR(36),
+    diagnosis VARCHAR(255) NOT NULL,
+    treatment TEXT NOT NULL,
+    medication TEXT,
+    testResults TEXT,
+    notes TEXT,
+    followUpDate DATE,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (patientId) REFERENCES users(id) ON DELETE RESTRICT,
+    FOREIGN KEY (doctorId) REFERENCES users(id) ON DELETE RESTRICT,
+    FOREIGN KEY (appointmentId) REFERENCES appointments(id) ON DELETE SET NULL,
+    KEY idx_patient (patientId),
+    KEY idx_doctor (doctorId),
+    KEY idx_createdAt (createdAt)
 );
 
--- 6. QueueEntry (walk-ins + checked-in appointments)
-CREATE TABLE QueueEntry (
-    QueueEntryID      INT AUTO_INCREMENT PRIMARY KEY,
-    PatientID         INT NOT NULL,
-    AppointmentID     INT NULL,                     -- NULL = walk-in
-    ClinicID          INT NOT NULL,
-    DoctorID          INT NULL,                     -- NULL = general queue
-    ArrivalTime       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    QueueNumber       INT,                          -- can be generated per day/clinic
-    UrgencyLevel      ENUM('Low', 'Medium', 'High', 'Emergency') DEFAULT 'Medium',
-    Status            ENUM('Waiting', 'InProgress', 'Completed', 'Skipped', 'Cancelled') DEFAULT 'Waiting',
-    CalledTime        TIMESTAMP NULL,
-    EstimatedWaitTime INT NULL,                     -- minutes
-    PositionInQueue   INT NULL,                     -- maintained by app logic
-    CreatedAt         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UpdatedAt         TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+-- 6. Queue Management
+CREATE TABLE queueEntries (
+    id VARCHAR(36) PRIMARY KEY,
+    appointmentId VARCHAR(36),
+    patientId VARCHAR(36) NOT NULL,
+    doctorId VARCHAR(36),
+    reason VARCHAR(255),
+    status ENUM('waiting', 'in-progress', 'completed', 'no-show') DEFAULT 'waiting',
+    position INT,
+    estimatedWaitTime INT,
+    arrivedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (appointmentId) REFERENCES appointments(id) ON DELETE SET NULL,
+    FOREIGN KEY (patientId) REFERENCES users(id) ON DELETE RESTRICT,
+    FOREIGN KEY (doctorId) REFERENCES users(id) ON DELETE SET NULL,
+    KEY idx_status (status),
+    KEY idx_doctor_status (doctorId, status),
+    KEY idx_arrived (arrivedAt)
+);
 
-    FOREIGN KEY (PatientID)     REFERENCES Patient(PatientID)     ON DELETE RESTRICT,
-    FOREIGN KEY (AppointmentID) REFERENCES Appointment(AppointmentID) ON DELETE SET NULL,
-    FOREIGN KEY (ClinicID)      REFERENCES Clinic(ClinicID)       ON DELETE RESTRICT,
-    FOREIGN KEY (DoctorID)      REFERENCES Doctor(DoctorID)       ON DELETE SET NULL,
+-- 7. Notifications
+CREATE TABLE notifications (
+    id VARCHAR(36) PRIMARY KEY,
+    userId VARCHAR(36) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    message TEXT,
+    type ENUM('appointment', 'record', 'system') DEFAULT 'system',
+    relatedId VARCHAR(36),
+    read BOOLEAN DEFAULT FALSE,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
+    KEY idx_user_read (userId, read),
+    KEY idx_created (createdAt)
+);
 
-    INDEX idx_queue_status_arrival (Status, ArrivalTime),
-    INDEX idx_queue_urgency (UrgencyLevel, ArrivalTime),
-    INDEX idx_queue_today (ClinicID, DATE(ArrivalTime), Status)
+-- 8. Hospitals
+CREATE TABLE hospitals (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    location VARCHAR(255),
+    phone VARCHAR(20),
+    type VARCHAR(100),
+    image LONGTEXT,
+    rating DECIMAL(3, 2) DEFAULT 0.00,
+    reviews INT DEFAULT 0,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    KEY idx_name (name)
+);
+
+-- 9. Insurance Providers
+CREATE TABLE insuranceProviders (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    fullName VARCHAR(255),
+    type VARCHAR(100),
+    coverage VARCHAR(20),
+    conditions TEXT,
+    benefits JSON,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    KEY idx_name (name)
+);
+
+-- 10. Medical Conditions
+CREATE TABLE medicalConditions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    prevalence VARCHAR(50),
+    icon VARCHAR(10),
+    treatments JSON,
+    specialists JSON,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    KEY idx_name (name)
 );
 

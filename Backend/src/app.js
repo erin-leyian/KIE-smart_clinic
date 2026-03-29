@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const authRoutes = require('./routes/auth.routes');
+const doctorsRoutes = require('./routes/doctors.routes');
 const appointmentRoutes = require('./routes/appointments.routes'); 
 const queueRoutes = require('./routes/queue.routes');   
 const smsRoutes = require('./routes/sms.routes');  
@@ -17,6 +18,7 @@ app.get('/health', (req, res) => {
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/api/doctors', doctorsRoutes);
 app.use('/api/appointments', appointmentRoutes); 
 app.use('/api/queue', queueRoutes);    
 app.use('/api/sms', smsRoutes);        
