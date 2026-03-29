@@ -47,7 +47,7 @@
   "hospitals": [
     {
       "id": 1,
-      "name": "Clinic Imishino",
+      "name": "Clinic byishimo",
       "location": "KN 2 St, Kigali",
       "phone": "+250 252 584 960",
       "type": "Private Clinic",
@@ -1176,7 +1176,7 @@
       "doctorName": "Dr. Felicity Uwineza",
       "doctorImage": "https://randomuser.me/api/portraits/women/40.jpg",
       "specialty": "Pharmacist",
-      "hospital": "Clinic Imishino",
+      "hospital": "Clinic byishimo",
       "time": "14:00 - 14:30",
       "date": "April 30",
       "dateObj": "2026-04-30",
