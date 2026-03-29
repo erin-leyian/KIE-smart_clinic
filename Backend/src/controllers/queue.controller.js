@@ -1,164 +1,218 @@
 const pool = require('../db');
+const { 
+  sendSuccess, sendError, sendValidationError 
+} = require('../utils/responseFormatter');
+const { 
+  isValidUUID, isValidQueueStatus, generateUUID, sanitizeInput 
+} = require('../utils/validation');
 
-// ── GET /api/queue ────────────────────────────────────────────────────────────
-const getQueue = async (req, res) => {
+// ── GET /api/queue/doctor/:doctorId ───────────────────────────────────────────
+const getQueueForDoctor = async (req, res) => {
   try {
-    const [rows] = await pool.query(`
-      SELECT 
-        q.QueueEntryID, q.QueueNumber, q.PositionInQueue, q.UrgencyLevel,
-        q.Status, q.ArrivalTime, q.EstimatedWaitTime,
-        p.PatientID, p.FirstName, p.LastName, p.PhoneNumber,
-        a.AppointmentDate, a.AppointmentTime
-      FROM QueueEntry q
-      JOIN Patient p ON q.PatientID = p.PatientID
-      LEFT JOIN Appointment a ON q.AppointmentID = a.AppointmentID
-      WHERE q.Status = 'Waiting'
-      ORDER BY q.UrgencyLevel = 'Emergency' DESC,
-               q.UrgencyLevel = 'High' DESC,
-               q.PositionInQueue ASC
-    `);
-    res.json({ queue: rows, total: rows.length });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch queue', details: err.message });
-  }
-};
+    const { doctorId } = req.params;
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
 
-// ── GET /api/queue/position/:patientId ────────────────────────────────────────
-const getQueuePosition = async (req, res) => {
-  const { patientId } = req.params;
-  try {
-    const [rows] = await pool.query(`
-      SELECT q.*, p.FirstName, p.LastName, p.PhoneNumber
-      FROM QueueEntry q
-      JOIN Patient p ON q.PatientID = p.PatientID
-      WHERE q.PatientID = ? AND q.Status = 'Waiting'
-    `, [patientId]);
+    if (!isValidUUID(doctorId)) return sendError(res, 'Invalid doctor ID format', 400);
 
-    if (rows.length === 0) return res.status(404).json({ error: 'Patient not in queue' });
-
-    const [countRows] = await pool.query(
-      'SELECT COUNT(*) AS ahead FROM QueueEntry WHERE PositionInQueue < ? AND Status = "Waiting"',
-      [rows[0].PositionInQueue]
-    );
-
-    res.json({ position: rows[0], patients_ahead: countRows[0].ahead });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to get queue position', details: err.message });
-  }
-};
-
-// ── POST /api/queue/checkin/:patientId ────────────────────────────────────────
-const checkInPatient = async (req, res) => {
-  const { patientId } = req.params;
-  const { appointmentId, clinicId, doctorId, urgencyLevel } = req.body;
-
-  if (!clinicId) {
-    return res.status(400).json({ error: 'clinicId is required' });
-  }
-
-  try {
-    // Check patient exists
-    const [patient] = await pool.query('SELECT * FROM Patient WHERE PatientID = ?', [patientId]);
-    if (patient.length === 0) return res.status(404).json({ error: 'Patient not found' });
-
-    // Check not already in queue
-    const [existing] = await pool.query(
-      'SELECT * FROM QueueEntry WHERE PatientID = ? AND Status = "Waiting"', [patientId]
-    );
-    if (existing.length > 0) {
-      return res.status(409).json({ error: 'Patient already in queue', position: existing[0].PositionInQueue });
+    // Access control: doctor sees own queue, admin sees any
+    if (userRole === 'doctor' && doctorId !== userId) {
+      return sendError(res, 'Unauthorized to view this queue', 403);
     }
 
-    // Get next queue number and position
-    const [maxQueue] = await pool.query(
-      'SELECT MAX(QueueNumber) AS maxNum, MAX(PositionInQueue) AS maxPos FROM QueueEntry WHERE Status = "Waiting"'
-    );
-    const nextNumber = (maxQueue[0].maxNum || 0) + 1;
-    const nextPosition = (maxQueue[0].maxPos || 0) + 1;
+    // Check doctor exists
+    const [doctorCheck] = await pool.query('SELECT id FROM users WHERE id = ? AND role = ?', [doctorId, 'doctor']);
+    if (doctorCheck.length === 0) return sendError(res, 'Doctor not found', 404);
 
-    // Determine urgency — High for elderly patients (check DateOfBirth)
-    let urgency = urgencyLevel || 'Medium';
-    if (!urgencyLevel) {
-      const [patientData] = await pool.query('SELECT DateOfBirth FROM Patient WHERE PatientID = ?', [patientId]);
-      if (patientData[0]?.DateOfBirth) {
-        const age = Math.floor((new Date() - new Date(patientData[0].DateOfBirth)) / (365.25 * 24 * 60 * 60 * 1000));
-        if (age >= 65) urgency = 'High';
-      }
+    // Get queue for this doctor, ordered by position
+    const [queueEntries] = await pool.query(
+      `SELECT 
+        q.id, q.appointmentId, q.patientId, q.status, q.position, 
+        q.estimatedWaitTime, q.arrivedAt, q.completedAt,
+        p.firstName AS patientFirstName, p.lastName AS patientLastName, p.phone AS patientPhone,
+        a.reason
+       FROM queueEntries q
+       JOIN users p ON q.patientId = p.id
+       LEFT JOIN appointments a ON q.appointmentId = a.id
+       WHERE q.doctorId = ? AND q.status IN (?, ?)
+       ORDER BY q.position ASC`,
+      [doctorId, 'waiting', 'in-progress']
+    );
+
+    // Format queue entries
+    const formattedQueue = queueEntries.map(entry => ({
+      id: entry.id,
+      appointmentId: entry.appointmentId,
+      patientId: entry.patientId,
+      patientName: `${entry.patientFirstName} ${entry.patientLastName}`,
+      patientPhone: entry.patientPhone,
+      reason: entry.reason,
+      status: entry.status,
+      position: entry.position,
+      estimatedWaitTime: entry.estimatedWaitTime,
+      arrivedAt: entry.arrivedAt,
+    }));
+
+    // Calculate average wait time
+    const completedEntries = await pool.query(
+      `SELECT AVG(TIMESTAMPDIFF(MINUTE, arrivedAt, completedAt)) AS avgTime
+       FROM queueEntries
+       WHERE doctorId = ? AND status = ? AND completedAt IS NOT NULL`,
+      [doctorId, 'completed']
+    );
+    const averageWaitTime = completedEntries[0][0]?.avgTime || 0;
+
+    return sendSuccess(res, {
+      queue: formattedQueue,
+      total: formattedQueue.length,
+      averageWaitTime: Math.round(averageWaitTime),
+    }, 'Queue retrieved successfully');
+  } catch (err) {
+    console.error('Get queue for doctor error:', err);
+    return sendError(res, 'Failed to fetch queue', 500, err.message);
+  }
+};
+
+// ── PUT /api/queue/:queueId ───────────────────────────────────────────────────
+const updateQueueStatus = async (req, res) => {
+  try {
+    const { queueId } = req.params;
+    const { status, notes } = req.body;
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
+
+    if (!isValidUUID(queueId)) return sendError(res, 'Invalid queue ID format', 400);
+
+    const errors = [];
+
+    if (!status) errors.push({ field: 'status', message: 'Status is required' });
+    else if (!isValidQueueStatus(status)) {
+      errors.push({ field: 'status', message: 'Invalid status value' });
     }
 
-    const [result] = await pool.query(
-      'INSERT INTO QueueEntry (PatientID, AppointmentID, ClinicID, DoctorID, QueueNumber, PositionInQueue, UrgencyLevel, Status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [patientId, appointmentId || null, clinicId, doctorId || null, nextNumber, nextPosition, urgency, 'Waiting']
+    if (errors.length > 0) return sendValidationError(res, errors);
+
+    // Get queue entry
+    const [queueCheck] = await pool.query('SELECT * FROM queueEntries WHERE id = ?', [queueId]);
+    if (queueCheck.length === 0) return sendError(res, 'Queue entry not found', 404);
+
+    const queueEntry = queueCheck[0];
+
+    // Access control: only doctor or admin can update queue
+    if (userRole === 'doctor' && queueEntry.doctorId !== userId) {
+      return sendError(res, 'Unauthorized to update this queue', 403);
+    }
+
+    // Update status
+    const updateFields = ['status = ?'];
+    const updateValues = [status];
+
+    if (status === 'in-progress') {
+      // Mark when consultation started
+      updateFields.push('startedAt = NOW()');
+    } else if (status === 'completed') {
+      updateFields.push('completedAt = NOW()');
+      // Calculate wait time
+      updateFields.push('estimatedWaitTime = TIMESTAMPDIFF(MINUTE, arrivedAt, NOW())');
+    }
+
+    if (notes) {
+      updateFields.push('notes = ?');
+      updateValues.push(sanitizeInput(notes));
+    }
+
+    updateValues.push(queueId);
+
+    await pool.query(
+      `UPDATE queueEntries SET ${updateFields.join(', ')} WHERE id = ?`,
+      updateValues
     );
 
-    res.status(201).json({
-      message: 'Patient checked in',
-      queueEntryId: result.insertId,
-      queueNumber: nextNumber,
-      position: nextPosition,
-      urgencyLevel: urgency
-    });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to check in patient', details: err.message });
-  }
-};
-
-// ── DELETE /api/queue/:tokenId ────────────────────────────────────────────────
-const removeFromQueue = async (req, res) => {
-  const { tokenId } = req.params;
-  try {
-    const [result] = await pool.query(
-      'UPDATE QueueEntry SET Status = "Completed" WHERE QueueEntryID = ?', [tokenId]
-    );
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Queue entry not found' });
-
-    // Reorder remaining positions
-    await pool.query(`
-      SET @pos = 0;
-    `);
-    await pool.query(`
-      UPDATE QueueEntry 
-      SET PositionInQueue = (@pos := @pos + 1)
-      WHERE Status = 'Waiting'
-      ORDER BY PositionInQueue ASC
-    `);
-
-    res.json({ message: 'Patient removed from queue' });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to remove from queue', details: err.message });
-  }
-};
-
-// ── PUT /api/queue/reorder ────────────────────────────────────────────────────
-const reorderQueue = async (req, res) => {
-  const { order } = req.body;
-  if (!order || !Array.isArray(order) || order.length === 0) {
-    return res.status(400).json({ error: 'order must be a non-empty array of QueueEntryIDs' });
-  }
-  try {
-    for (let i = 0; i < order.length; i++) {
+    // Recalculate positions if completing
+    if (status === 'completed') {
       await pool.query(
-        'UPDATE QueueEntry SET PositionInQueue = ? WHERE QueueEntryID = ? AND Status = "Waiting"',
-        [i + 1, order[i]]
+        `UPDATE queueEntries 
+         SET position = (SELECT COUNT(*) FROM queueEntries q2 
+                        WHERE q2.doctorId = queueEntries.doctorId 
+                        AND q2.status IN ('waiting', 'in-progress') 
+                        AND q2.position < queueEntries.position)
+         WHERE doctorId = ? AND status IN (?, ?)`,
+        [queueEntry.doctorId, 'waiting', 'in-progress']
       );
     }
-    const [rows] = await pool.query(`
-      SELECT q.*, p.FirstName, p.LastName, p.PhoneNumber
-      FROM QueueEntry q
-      JOIN Patient p ON q.PatientID = p.PatientID
-      WHERE q.Status = 'Waiting'
-      ORDER BY q.PositionInQueue ASC
-    `);
-    res.json({ message: 'Queue reordered', queue: rows });
+
+    // Fetch updated entry
+    const [updated] = await pool.query('SELECT * FROM queueEntries WHERE id = ?', [queueId]);
+
+    return sendSuccess(res, {
+      id: updated[0].id,
+      appointmentId: updated[0].appointmentId,
+      patientId: updated[0].patientId,
+      status: updated[0].status,
+      position: updated[0].position,
+    }, 'Queue status updated');
   } catch (err) {
-    res.status(500).json({ error: 'Failed to reorder queue', details: err.message });
+    console.error('Update queue status error:', err);
+    return sendError(res, 'Failed to update queue status', 500, err.message);
+  }
+};
+
+// ── PUT /api/queue/:queueId/complete ──────────────────────────────────────────
+const completeQueue = async (req, res) => {
+  try {
+    const { queueId } = req.params;
+    const { notes, duration } = req.body;
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
+
+    if (!isValidUUID(queueId)) return sendError(res, 'Invalid queue ID format', 400);
+
+    // Get queue entry
+    const [queueCheck] = await pool.query('SELECT * FROM queueEntries WHERE id = ?', [queueId]);
+    if (queueCheck.length === 0) return sendError(res, 'Queue entry not found', 404);
+
+    const queueEntry = queueCheck[0];
+
+    // Access control: only doctor or admin can complete queue
+    if (userRole === 'doctor' && queueEntry.doctorId !== userId) {
+      return sendError(res, 'Unauthorized to complete this queue', 403);
+    }
+
+    // Update status to completed and mark appointment as completed
+    await pool.query(
+      `UPDATE queueEntries 
+       SET status = ?, completedAt = NOW(), notes = ?
+       WHERE id = ?`,
+      ['completed', sanitizeInput(notes || null), queueId]
+    );
+
+    // Update corresponding appointment status
+    if (queueEntry.appointmentId) {
+      await pool.query(
+        `UPDATE appointments SET status = ?, updatedAt = NOW() WHERE id = ?`,
+        ['completed', queueEntry.appointmentId]
+      );
+    }
+
+    // Fetch updated entry
+    const [updated] = await pool.query('SELECT * FROM queueEntries WHERE id = ?', [queueId]);
+
+    return sendSuccess(res, {
+      id: updated[0].id,
+      appointmentId: updated[0].appointmentId,
+      patientId: updated[0].patientId,
+      status: updated[0].status,
+      completedAt: updated[0].completedAt,
+      duration,
+    }, 'Appointment marked as completed');
+  } catch (err) {
+    console.error('Complete queue error:', err);
+    return sendError(res, 'Failed to complete queue entry', 500, err.message);
   }
 };
 
 module.exports = {
-  getQueue,
-  getQueuePosition,
-  checkInPatient,
-  removeFromQueue,
-  reorderQueue,
+  getQueueForDoctor,
+  updateQueueStatus,
+  completeQueue,
 };

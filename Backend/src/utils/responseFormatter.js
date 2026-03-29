@@ -130,12 +130,28 @@ const formatDoctorResponse = (user, specialization) => {
 const formatAppointmentResponse = (appointment, doctor = null, patient = null) => {
   if (!appointment) return null;
 
+  // Handle doctor name from either direct object or from JOIN
+  let doctorName = null;
+  if (doctor) {
+    doctorName = `Dr. ${doctor.firstName} ${doctor.lastName}`;
+  } else if (appointment.doctorFirstName && appointment.doctorLastName) {
+    doctorName = `Dr. ${appointment.doctorFirstName} ${appointment.doctorLastName}`;
+  }
+
+  // Handle patient name from either direct object or from JOIN
+  let patientName = null;
+  if (patient) {
+    patientName = `${patient.firstName} ${patient.lastName}`;
+  } else if (appointment.patientFirstName && appointment.patientLastName) {
+    patientName = `${appointment.patientFirstName} ${appointment.patientLastName}`;
+  }
+
   return {
     id: appointment.id,
     doctorId: appointment.doctorId,
-    doctorName: doctor ? `Dr. ${doctor.firstName} ${doctor.lastName}` : null,
+    doctorName,
     patientId: appointment.patientId,
-    patientName: patient ? `${patient.firstName} ${patient.lastName}` : null,
+    patientName,
     appointmentDate: appointment.appointmentDate,
     appointmentTime: appointment.appointmentTime,
     reason: appointment.reason,

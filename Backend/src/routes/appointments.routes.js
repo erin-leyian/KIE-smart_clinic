@@ -1,20 +1,30 @@
 const express = require('express');
 const router = express.Router();
 const {
-  getAppointments,
-  getAppointmentById,
   createAppointment,
+  getAllAppointments,
+  getAppointmentById,
   updateAppointment,
-  cancelAppointment,
+  deleteAppointment,
 } = require('../controllers/appointments.controller');
 const { authenticate, requireRole } = require('../middleware/auth.middleware');
 
+// All appointment endpoints require authentication
 router.use(authenticate);
 
-router.get('/', requireRole('Admin', 'receptionist'), getAppointments);
-router.get('/:id', requireRole('Admin', 'receptionist'), getAppointmentById);
-router.post('/', requireRole('Admin', 'receptionist'), createAppointment);
-router.put('/:id', requireRole('Admin', 'receptionist'), updateAppointment);
-router.delete('/:id', requireRole('Admin', 'receptionist'), cancelAppointment);
+// Patient can create their own appointments, doctor/admin can create for anyone
+router.post('/', requireRole('patient', 'doctor', 'admin'), createAppointment);
+
+// Get all appointments (filtered by role)
+router.get('/', getAllAppointments);
+
+// Get specific appointment (with access control)
+router.get('/:id', getAppointmentById);
+
+// Update appointment (patient updates own, doctor/admin can update any)
+router.put('/:id', updateAppointment);
+
+// Delete appointment (patient deletes own, doctor/admin can delete any)
+router.delete('/:id', deleteAppointment);
 
 module.exports = router;

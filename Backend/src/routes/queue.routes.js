@@ -1,30 +1,22 @@
 const express = require('express');
 const router = express.Router();
 const {
-  getQueue,
-  getQueuePosition,
-  checkInPatient,
-  removeFromQueue,
-  reorderQueue,
+  getQueueForDoctor,
+  updateQueueStatus,
+  completeQueue,
 } = require('../controllers/queue.controller');
 const { authenticate, requireRole } = require('../middleware/auth.middleware');
 
 // All routes require authentication
 router.use(authenticate);
 
-// GET /api/queue — get the full live queue (staff view)
-router.get('/', requireRole('Admin', 'receptionist'), getQueue);
+// GET /api/queue/doctor/:doctorId — Get patient queue for specific doctor
+router.get('/doctor/:doctorId', getQueueForDoctor);
 
-// GET /api/queue/position/:patientId — get a specific patient's queue position
-router.get('/position/:patientId', requireRole('Admin', 'receptionist'), getQueuePosition);
+// PUT /api/queue/:queueId — Update queue status (doctor or admin only)
+router.put('/:queueId', requireRole('doctor', 'admin'), updateQueueStatus);
 
-// POST /api/queue/checkin/:patientId — check in a patient (adds them to the queue)
-router.post('/checkin/:patientId', requireRole('Admin', 'receptionist'), checkInPatient);
-
-// DELETE /api/queue/:tokenId — remove a patient from the queue
-router.delete('/:tokenId', requireRole('Admin', 'receptionist'), removeFromQueue);
-
-// PUT /api/queue/reorder — reorder the queue (admin only)
-router.put('/reorder', requireRole('Admin'), reorderQueue);
+// PUT /api/queue/:queueId/complete — Mark queue complete and appointment finished
+router.put('/:queueId/complete', requireRole('doctor', 'admin'), completeQueue);
 
 module.exports = router;
