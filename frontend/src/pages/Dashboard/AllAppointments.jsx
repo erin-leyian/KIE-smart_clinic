@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, MapPin, Phone, Video, MessageSquare, CheckCircle, Calendar, ChevronDown, AlertCircle, RotateCcw, Edit2, Save, X } from 'lucide-react';
+import { Clock, MapPin, Phone, Video, MessageSquare, CheckCircle, Calendar, ChevronDown, AlertCircle, RotateCcw, Edit2, Save, X, Trash2 } from 'lucide-react';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import Modal from '../../components/Modal';
 import mockData from '../../data/mockData.json';
@@ -19,6 +19,11 @@ export default function AllAppointments() {
   const [userRole, setUserRole] = useState('patient');
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [notes, setNotes] = useState('');
+  const [editingAppointment, setEditingAppointment] = useState(null);
+  const [editModal, setEditModal] = useState(false);
+  const [editFormData, setEditFormData] = useState({});
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState(false);
+  const [appointmentToDelete, setAppointmentToDelete] = useState(null);
 
   // Load appointments data with error handling
   useEffect(() => {
@@ -189,6 +194,39 @@ export default function AllAppointments() {
     }
   };
 
+  const handleEditClick = (e, appointment) => {
+    e.stopPropagation();
+    setEditingAppointment(appointment);
+    setEditFormData({ ...appointment });
+    setEditModal(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (!editFormData.patientName || !editFormData.doctorName || !editFormData.date) {
+      alert('Please fill in required fields');
+      return;
+    }
+    const updated = appointments.map(apt => apt.id === editFormData.id ? editFormData : apt);
+    setAppointments(updated);
+    setEditModal(false);
+    setEditingAppointment(null);
+    alert('Appointment updated successfully!');
+  };
+
+  const handleDeleteClick = (e, appointment) => {
+    e.stopPropagation();
+    setAppointmentToDelete(appointment);
+    setDeleteConfirmModal(true);
+  };
+
+  const handleConfirmDelete = () => {
+    const updated = appointments.filter(apt => apt.id !== appointmentToDelete.id);
+    setAppointments(updated);
+    setDeleteConfirmModal(false);
+    setAppointmentToDelete(null);
+    alert('Appointment deleted successfully!');
+  };
+
   const getConsultationTypeIcon = (type) => {
     if (type === 'Video Call') return <Video className="w-4 h-4" />;
     if (type === 'Phone Call') return <Phone className="w-4 h-4" />;
@@ -315,15 +353,33 @@ export default function AllAppointments() {
                       </div>
                     </div>
 
-                    {/* Status and Fee */}
+                    {/* Status, Fee and Actions */}
                     <div className="flex flex-col items-end gap-2 ml-4">
                       <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getStatusColor(apt.status)}`}>
                         {apt.status}
                       </span>
-                      <div className="text-right">
+                      <div className="text-right mb-2">
                         <p className="text-xs text-gray-600">Fee</p>
                         <p className="font-bold text-teal-600">{apt.fee}</p>
                       </div>
+                      {userRole === 'admin' && (
+                        <div className="flex gap-1">
+                          <button
+                            onClick={(e) => handleEditClick(e, apt)}
+                            className="p-1.5 border border-blue-500 text-blue-600 rounded hover:bg-blue-50 transition"
+                            title="Edit appointment"
+                          >
+                            <Edit2 size={14} />
+                          </button>
+                          <button
+                            onClick={(e) => handleDeleteClick(e, apt)}
+                            className="p-1.5 border border-red-500 text-red-600 rounded hover:bg-red-50 transition"
+                            title="Delete appointment"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -477,6 +533,133 @@ export default function AllAppointments() {
           </div>
         )}
       </Modal>
+
+      {/* Edit Appointment Modal */}
+      {editModal && editingAppointment && (
+        <Modal
+          isOpen={editModal}
+          onClose={() => {
+            setEditModal(false);
+            setEditingAppointment(null);
+          }}
+          title="Edit Appointment"
+          size="md"
+          actions={[
+            {
+              label: 'Save Changes',
+              onClick: handleSaveEdit,
+              variant: 'primary'
+            },
+            {
+              label: 'Cancel',
+              onClick: () => {
+                setEditModal(false);
+                setEditingAppointment(null);
+              },
+              variant: 'secondary'
+            }
+          ]}
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Patient Name *</label>
+              <input
+                type="text"
+                value={editFormData.patientName || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, patientName: e.target.value })}
+                className="w-full border p-2 rounded-lg outline-none focus:ring-2 focus:ring-teal-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Doctor Name *</label>
+              <input
+                type="text"
+                value={editFormData.doctorName || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, doctorName: e.target.value })}
+                className="w-full border p-2 rounded-lg outline-none focus:ring-2 focus:ring-teal-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Date *</label>
+              <input
+                type="date"
+                value={editFormData.date || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, date: e.target.value })}
+                className="w-full border p-2 rounded-lg outline-none focus:ring-2 focus:ring-teal-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Time</label>
+              <input
+                type="text"
+                value={editFormData.time || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, time: e.target.value })}
+                placeholder="e.g., 09:00 - 09:30"
+                className="w-full border p-2 rounded-lg outline-none focus:ring-2 focus:ring-teal-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+              <select
+                value={editFormData.status || 'Pending'}
+                onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
+                className="w-full border p-2 rounded-lg outline-none focus:ring-2 focus:ring-teal-500"
+              >
+                <option>Pending</option>
+                <option>Confirmed</option>
+                <option>Completed</option>
+                <option>Cancelled</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+              <textarea
+                value={editFormData.notes || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, notes: e.target.value })}
+                className="w-full border p-2 rounded-lg outline-none focus:ring-2 focus:ring-teal-500"
+                rows="3"
+              />
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmModal && appointmentToDelete && (
+        <Modal
+          isOpen={deleteConfirmModal}
+          onClose={() => {
+            setDeleteConfirmModal(false);
+            setAppointmentToDelete(null);
+          }}
+          title="Delete Appointment"
+          size="sm"
+          actions={[
+            {
+              label: 'Delete',
+              onClick: handleConfirmDelete,
+              variant: 'danger'
+            },
+            {
+              label: 'Cancel',
+              onClick: () => {
+                setDeleteConfirmModal(false);
+                setAppointmentToDelete(null);
+              },
+              variant: 'secondary'
+            }
+          ]}
+        >
+          <div className="text-center py-4">
+            <p className="text-gray-700 mb-4">
+              Are you sure you want to delete the appointment with <strong>{appointmentToDelete.doctorName}</strong> on <strong>{appointmentToDelete.date}</strong>?
+            </p>
+            <p className="text-sm text-gray-500">
+              This action cannot be undone.
+            </p>
+          </div>
+        </Modal>
+      )}
     </DashboardLayout>
   );
 }

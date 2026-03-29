@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Search, Star, CreditCard, Clock, ChevronDown, AlertCircle, RotateCcw } from 'lucide-react';
+import { Search, Star, CreditCard, Clock, ChevronDown, AlertCircle, RotateCcw, Edit2, Trash2 } from 'lucide-react';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import Modal from '../../components/Modal';
 import mockData from '../../data/mockData.json';
@@ -21,6 +21,11 @@ export default function AllDoctors() {
   const [error, setError] = useState('');
   const [currentUser, setCurrentUser] = useState(null);
   const [userRole, setUserRole] = useState('patient');
+  const [editingDoctor, setEditingDoctor] = useState(null);
+  const [editModal, setEditModal] = useState(false);
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState(false);
+  const [doctorToDelete, setDoctorToDelete] = useState(null);
+  const [editFormData, setEditFormData] = useState({});
 
   const [doctors, setDoctors] = useState([]);
 
@@ -119,6 +124,37 @@ export default function AllDoctors() {
   const handleBookAppointment = (doctor) => {
     setSelectedDoctorForBooking(doctor);
     setBookingModal(true);
+  };
+
+  const handleEditClick = (doctor) => {
+    setEditingDoctor(doctor);
+    setEditFormData({ ...doctor });
+    setEditModal(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (!editFormData.name || !editFormData.specialty || !editFormData.hospital) {
+      alert('Please fill in required fields (Name, Specialty, Hospital)');
+      return;
+    }
+    const updatedDoctors = doctors.map(d => d.id === editFormData.id ? editFormData : d);
+    setDoctors(updatedDoctors);
+    setEditModal(false);
+    setEditingDoctor(null);
+    alert('Doctor updated successfully!');
+  };
+
+  const handleDeleteClick = (doctor) => {
+    setDoctorToDelete(doctor);
+    setDeleteConfirmModal(true);
+  };
+
+  const handleConfirmDelete = () => {
+    const updatedDoctors = doctors.filter(d => d.id !== doctorToDelete.id);
+    setDoctors(updatedDoctors);
+    setDeleteConfirmModal(false);
+    setDoctorToDelete(null);
+    alert('Doctor deleted successfully!');
   };
 
   return (
@@ -254,6 +290,24 @@ export default function AllDoctors() {
                   >
                     {bookedDoctors[doctor.id] ? 'Booked' : 'Book'}
                   </button>
+                  {userRole === 'admin' && (
+                    <>
+                      <button
+                        onClick={() => handleEditClick(doctor)}
+                        className="px-3 py-2 border border-blue-500 text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-50 transition"
+                        title="Edit doctor"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteClick(doctor)}
+                        className="px-3 py-2 border border-red-500 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 transition"
+                        title="Delete doctor"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
               );
@@ -403,6 +457,140 @@ export default function AllDoctors() {
             <div className="bg-blue-50 p-4 rounded-lg">
               <p className="text-sm text-gray-700"><strong>Fee:</strong> {selectedDoctorForBooking?.fee}</p>
             </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Edit Doctor Modal */}
+      {editModal && editingDoctor && (
+        <Modal
+          isOpen={editModal}
+          onClose={() => {
+            setEditModal(false);
+            setEditingDoctor(null);
+          }}
+          title="Edit Doctor"
+          size="md"
+          actions={[
+            {
+              label: 'Save Changes',
+              onClick: handleSaveEdit,
+              variant: 'primary'
+            },
+            {
+              label: 'Cancel',
+              onClick: () => {
+                setEditModal(false);
+                setEditingDoctor(null);
+              },
+              variant: 'secondary'
+            }
+          ]}
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Name *</label>
+              <input
+                type="text"
+                value={editFormData.name || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                className="w-full border p-2 rounded-lg outline-none focus:ring-2 focus:ring-teal-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Specialty *</label>
+              <input
+                type="text"
+                value={editFormData.specialty || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, specialty: e.target.value })}
+                className="w-full border p-2 rounded-lg outline-none focus:ring-2 focus:ring-teal-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Hospital *</label>
+              <input
+                type="text"
+                value={editFormData.hospital || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, hospital: e.target.value })}
+                className="w-full border p-2 rounded-lg outline-none focus:ring-2 focus:ring-teal-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Experience</label>
+              <input
+                type="text"
+                value={editFormData.experience || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, experience: e.target.value })}
+                className="w-full border p-2 rounded-lg outline-none focus:ring-2 focus:ring-teal-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Rating</label>
+              <input
+                type="number"
+                step="0.1"
+                min="0"
+                max="5"
+                value={editFormData.rating || 0}
+                onChange={(e) => setEditFormData({ ...editFormData, rating: parseFloat(e.target.value) })}
+                className="w-full border p-2 rounded-lg outline-none focus:ring-2 focus:ring-teal-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Fee</label>
+              <input
+                type="text"
+                value={editFormData.fee || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, fee: e.target.value })}
+                className="w-full border p-2 rounded-lg outline-none focus:ring-2 focus:ring-teal-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Hours</label>
+              <input
+                type="text"
+                value={editFormData.hours || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, hours: e.target.value })}
+                className="w-full border p-2 rounded-lg outline-none focus:ring-2 focus:ring-teal-500"
+              />
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmModal && doctorToDelete && (
+        <Modal
+          isOpen={deleteConfirmModal}
+          onClose={() => {
+            setDeleteConfirmModal(false);
+            setDoctorToDelete(null);
+          }}
+          title="Delete Doctor"
+          size="sm"
+          actions={[
+            {
+              label: 'Delete',
+              onClick: handleConfirmDelete,
+              variant: 'danger'
+            },
+            {
+              label: 'Cancel',
+              onClick: () => {
+                setDeleteConfirmModal(false);
+                setDoctorToDelete(null);
+              },
+              variant: 'secondary'
+            }
+          ]}
+        >
+          <div className="text-center py-4">
+            <p className="text-gray-700 mb-4">
+              Are you sure you want to delete <strong>{doctorToDelete.name}</strong>?
+            </p>
+            <p className="text-sm text-gray-500">
+              This action cannot be undone.
+            </p>
           </div>
         </Modal>
       )}

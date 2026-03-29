@@ -129,7 +129,7 @@ export default function DashboardLayout({ children, title }) {
         },
         {
           name: "System Settings",
-          path: "/dashboard/settings",
+          path: "/dashboard/admin/settings",
           icon: <Settings size={18} />,
         },
         ...commonItems,

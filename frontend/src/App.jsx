@@ -6,6 +6,10 @@ import Auth from "./pages/Auth";
 import DashboardHome from "./pages/Dashboard/DashboardHome";
 import DoctorDashboard from "./pages/Dashboard/DoctorDashboard";
 import AdminDashboard from "./pages/Dashboard/AdminDashboard";
+import AdminUsers from "./pages/Dashboard/AdminUsers";
+import AdminDoctors from "./pages/Dashboard/AdminDoctors";
+import AdminAppointments from "./pages/Dashboard/AdminAppointments";
+import SystemSettings from "./pages/Dashboard/SystemSettings";
 import PatientRecords from "./pages/Dashboard/PatientRecords";
 import OnlineConsult from "./pages/Dashboard/OnlineConsult";
 import Profile from "./pages/Dashboard/Profile";
@@ -25,6 +29,10 @@ function App() {
         <Route path="/dashboard" element={<DashboardHome />} />
         <Route path="/dashboard/doctor" element={<DoctorDashboard />} />
         <Route path="/dashboard/admin" element={<AdminDashboard />} />
+        <Route path="/dashboard/admin/users" element={<AdminUsers />} />
+        <Route path="/dashboard/admin/doctors" element={<AdminDoctors />} />
+        <Route path="/dashboard/admin/appointments" element={<AdminAppointments />} />
+        <Route path="/dashboard/admin/settings" element={<SystemSettings />} />
         <Route path="/dashboard/doctors" element={<AllDoctors />} />
         <Route path="/dashboard/appointments" element={<AllAppointments />} />
         <Route path="/dashboard/doctor/appointments" element={<DoctorAppointments />} />
