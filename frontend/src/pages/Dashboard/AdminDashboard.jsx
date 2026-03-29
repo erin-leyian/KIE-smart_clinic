@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
-import { Users, Briefcase, Calendar, TrendingUp, Activity, AlertCircle } from 'lucide-react';
+import { Users, Briefcase, Calendar, TrendingUp, Activity, AlertCircle, Settings, ArrowRight } from 'lucide-react';
 import mockData from '../../data/mockData.json';
 
 export default function AdminDashboard() {
@@ -143,17 +143,33 @@ export default function AdminDashboard() {
             <div className="bg-white border rounded-lg p-6">
               <h3 className="text-lg font-bold text-gray-800 mb-6">Quick Actions</h3>
               <div className="space-y-3">
-                <button className="w-full text-left px-4 py-3 bg-teal-50 hover:bg-teal-100 text-teal-700 rounded-lg transition-colors font-medium">
-                  → Manage Users
+                <button
+                  onClick={() => navigate('/dashboard/admin/users')}
+                  className="w-full flex items-center justify-between px-4 py-3 bg-teal-50 hover:bg-teal-100 text-teal-700 rounded-lg transition-colors font-medium"
+                >
+                  <span>→ Manage Users</span>
+                  <ArrowRight size={18} />
                 </button>
-                <button className="w-full text-left px-4 py-3 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors font-medium">
-                  → Manage Doctors
+                <button
+                  onClick={() => navigate('/dashboard/admin/doctors')}
+                  className="w-full flex items-center justify-between px-4 py-3 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors font-medium"
+                >
+                  <span>→ Manage Doctors</span>
+                  <ArrowRight size={18} />
                 </button>
-                <button className="w-full text-left px-4 py-3 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg transition-colors font-medium">
-                  → View Analytics
+                <button
+                  onClick={() => navigate('/dashboard/admin/appointments')}
+                  className="w-full flex items-center justify-between px-4 py-3 bg-orange-50 hover:bg-orange-100 text-orange-700 rounded-lg transition-colors font-medium"
+                >
+                  <span>→ Manage Appointments</span>
+                  <ArrowRight size={18} />
                 </button>
-                <button className="w-full text-left px-4 py-3 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg transition-colors font-medium">
-                  → System Settings
+                <button
+                  onClick={() => navigate('/dashboard/admin/settings')}
+                  className="w-full flex items-center justify-between px-4 py-3 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg transition-colors font-medium"
+                >
+                  <span>→ System Settings</span>
+                  <ArrowRight size={18} />
                 </button>
               </div>
             </div>
