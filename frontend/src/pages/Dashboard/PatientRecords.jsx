@@ -1403,7 +1403,7 @@ export default function PatientRecords() {
                     </button>
                   </div>
                 </div>
-                {userRole === 'doctor' && canEditPatientRecord(record, userRole, currentUser) && (
+                {(userRole === 'doctor' || userRole === 'admin') && canEditPatientRecord(record, userRole, currentUser) && (
                   <div className="ml-4 flex gap-2">
                     <button
                       onClick={() => handleEditRecord(record)}
