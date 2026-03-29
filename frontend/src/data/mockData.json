@@ -1,0 +1,1270 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "email": "dr.jean@clinic.rw",
+      "password": "password123",
+      "name": "Dr. Jean Mukasine",
+      "role": "doctor",
+      "specialty": "General Practitioner",
+      "location": "Kigali Central Hospital, Kigali",
+      "phone": "+250 789 123 456",
+      "dob": "03/04/1996",
+      "age": 30,
+      "avatar": "https://randomuser.me/api/portraits/men/32.jpg",
+      "hospital": "Kigali Central Hospital",
+      "license": "RMC/2020/001",
+      "experience": "10 years",
+      "languages": ["Kinyarwanda", "English", "French"]
+    },
+    {
+      "id": 2,
+      "email": "patient.alice@gmail.com",
+      "password": "password123",
+      "name": "Alice Uwirimana",
+      "role": "patient",
+      "location": "Kigali, Rwanda",
+      "phone": "+250 788 456 789",
+      "dob": "15/06/1990",
+      "age": 35,
+      "avatar": "https://randomuser.me/api/portraits/women/32.jpg",
+      "insurance": "RSSB",
+      "insureNumber": "RSSB-000123456",
+      "medicalHistory": ["Hypertension - 2 years", "Occasional migraines"]
+    },
+    {
+      "id": 3,
+      "email": "admin@queuecare.rw",
+      "password": "admin123",
+      "name": "Admin User",
+      "role": "admin",
+      "location": "Kigali, Rwanda",
+      "phone": "+250 789 999 999",
+      "avatar": "https://randomuser.me/api/portraits/men/50.jpg",
+      "permissions": ["view_all_users", "manage_doctors", "manage_clinics", "view_analytics", "manage_admins"]
+    }
+  ],
+  "hospitals": [
+    {
+      "id": 1,
+      "name": "Clinic byishimo",
+      "location": "KN 2 St, Kigali",
+      "phone": "+250 252 584 960",
+      "type": "Private Clinic",
+      "image": "https://images.unsplash.com/photo-1576091160550-112173f7f869?w=300&h=200&fit=crop",
+      "rating": 4.8,
+      "reviews": 245
+    },
+    {
+      "id": 2,
+      "name": "King Faisal Hospital",
+      "location": "Boulevard de la Révolution, Kigali",
+      "phone": "+250 252 580 666",
+      "type": "Teaching Hospital",
+      "image": "https://images.unsplash.com/photo-1537368310025-700d6a6ca189?w=300&h=200&fit=crop",
+      "rating": 4.9,
+      "reviews": 512
+    },
+    {
+      "id": 3,
+      "name": "Kigali Central Hospital",
+      "location": "KG 2 St, Kigali",
+      "phone": "+250 252 573 721",
+      "type": "Government Hospital",
+      "image": "https://images.unsplash.com/photo-1551076805-e1869033e931?w=300&h=200&fit=crop",
+      "rating": 4.6,
+      "reviews": 389
+    },
+    {
+      "id": 4,
+      "name": "Rwanda Medical Center",
+      "location": "Nyarugenge, Kigali",
+      "phone": "+250 252 551 401",
+      "type": "Private Hospital",
+      "image": "https://images.unsplash.com/photo-1631217314831-c6227db76b6e?w=300&h=200&fit=crop",
+      "rating": 4.7,
+      "reviews": 198
+    },
+    {
+      "id": 5,
+      "name": "Butaro Referral Hospital",
+      "location": "Burera, Northern Province",
+      "phone": "+250 252 560 000",
+      "type": "Referral Hospital",
+      "image": "https://images.unsplash.com/photo-1587096464519-1e71925a34cd?w=300&h=200&fit=crop",
+      "rating": 4.5,
+      "reviews": 156
+    }
+  ],
+  "doctors": [
+    { "id": 1, "name": "Dr. Jean Mukasine", "specialty": "General Practitioner", "experience": "10 years", "hours": "Mon-Fri 08:00-17:00", "fee": "15000 RWF", "image": "https://randomuser.me/api/portraits/men/32.jpg", "hospital": "Kigali Central Hospital", "rating": 4.9, "languages": ["Kinyarwanda", "English", "French"], "city": "Kigali" },
+    { "id": 2, "name": "Dr. Sylvain Uwizeye", "specialty": "Cardiologist", "experience": "12 years", "hours": "Tue-Sat 09:00-16:00", "fee": "35000 RWF", "image": "https://randomuser.me/api/portraits/men/45.jpg", "hospital": "King Faisal Hospital", "rating": 4.8, "languages": ["Kinyarwanda", "English", "French"], "city": "Kigali" },
+    { "id": 3, "name": "Dr. Marie Ikirezi", "specialty": "Pediatrician", "experience": "8 years", "hours": "Mon, Wed, Fri 07:00-15:00", "fee": "28000 RWF", "image": "https://randomuser.me/api/portraits/women/45.jpg", "hospital": "Kigali Central Hospital", "rating": 4.7, "languages": ["Kinyarwanda", "English"], "city": "Kigali" },
+    { "id": 4, "name": "Dr. Paul Hakizimana", "specialty": "Surgeon", "experience": "15 years", "hours": "Tue, Thu, Sat 10:00-14:00", "fee": "50000 RWF", "image": "https://randomuser.me/api/portraits/men/78.jpg", "hospital": "King Faisal Hospital", "rating": 4.9, "languages": ["Kinyarwanda", "English", "French"], "city": "Kigali" },
+    { "id": 5, "name": "Dr. Grace Mukantabana", "specialty": "Obstetrician", "experience": "11 years", "hours": "Mon-Fri 08:30-16:30", "fee": "40000 RWF", "image": "https://randomuser.me/api/portraits/women/68.jpg", "hospital": "Rwanda Medical Center", "rating": 4.8, "languages": ["Kinyarwanda", "English", "French"], "city": "Kigali" },
+    { "id": 6, "name": "Dr. Innocent Ndahiro", "specialty": "Dermatologist", "experience": "9 years", "hours": "Wed-Fri 10:00-15:00", "fee": "24000 RWF", "image": "https://randomuser.me/api/portraits/men/56.jpg", "hospital": "Rwanda Medical Center", "rating": 4.6, "languages": ["Kinyarwanda", "English"], "city": "Kigali" },
+    { "id": 7, "name": "Dr. Viviane Mukankusi", "specialty": "Psychiatrist", "experience": "7 years", "hours": "Tue, Thu, Sat 09:00-17:00", "fee": "30000 RWF", "image": "https://randomuser.me/api/portraits/women/78.jpg", "hospital": "Rwanda Medical Center", "rating": 4.7, "languages": ["Kinyarwanda", "English", "French"], "city": "Kigali" },
+    { "id": 8, "name": "Dr. Théo Habimana", "specialty": "Orthopedist", "experience": "13 years", "hours": "Mon, Wed, Fri 08:00-16:00", "fee": "32000 RWF", "image": "https://randomuser.me/api/portraits/men/89.jpg", "hospital": "Kigali Central Hospital", "rating": 4.8, "languages": ["Kinyarwanda", "English", "French"], "city": "Kigali" },
+    { "id": 9, "name": "Dr. Hortense Nzamwita", "specialty": "Ophthalmologist", "experience": "10 years", "hours": "Tue-Sat 09:00-15:00", "fee": "26000 RWF", "image": "https://randomuser.me/api/portraits/women/89.jpg", "hospital": "King Faisal Hospital", "rating": 4.9, "languages": ["Kinyarwanda", "English"], "city": "Kigali" },
+    { "id": 10, "name": "Dr. Denis Murwanashyaka", "specialty": "Gastroenterologist", "experience": "11 years", "hours": "Wed-Fri 10:00-17:00", "fee": "31000 RWF", "image": "https://randomuser.me/api/portraits/men/12.jpg", "hospital": "Rwanda Medical Center", "rating": 4.7, "languages": ["Kinyarwanda", "English", "French"], "city": "Kigali" },
+    { "id": 11, "name": "Dr. Florence Umutoniwase", "specialty": "Neurologist", "experience": "12 years", "hours": "Mon, Wed, Fri 08:30-16:30", "fee": "38000 RWF", "image": "https://randomuser.me/api/portraits/women/23.jpg", "hospital": "King Faisal Hospital", "rating": 4.8, "languages": ["Kinyarwanda", "English", "French"], "city": "Kigali" },
+    { "id": 12, "name": "Dr. Clement Karekezi", "specialty": "ENT Specialist", "experience": "8 years", "hours": "Tue, Thu, Sat 10:00-16:00", "fee": "24000 RWF", "image": "https://randomuser.me/api/portraits/men/34.jpg", "hospital": "Kigali Central Hospital", "rating": 4.6, "languages": ["Kinyarwanda", "English"], "city": "Kigali" },
+    { "id": 13, "name": "Dr. Felicity Uwineza", "specialty": "Pharmacist", "experience": "6 years", "hours": "Mon-Fri 07:00-18:00", "fee": "10000 RWF", "image": "https://randomuser.me/api/portraits/women/40.jpg", "hospital": "Rwanda Medical Center", "rating": 4.5, "languages": ["Kinyarwanda", "English"], "city": "Kigali" },
+    { "id": 14, "name": "Dr. Alain Sebisoni", "specialty": "Cardiologist", "experience": "11 years", "hours": "Tue-Fri 10:00-17:00", "fee": "32000 RWF", "image": "https://randomuser.me/api/portraits/men/50.jpg", "hospital": "Kigali Central Hospital", "rating": 4.6, "languages": ["Kinyarwanda", "French"], "city": "Kigali" },
+    { "id": 15, "name": "Dr. Sarah Nkurikiye", "specialty": "Anesthesiologist", "experience": "10 years", "hours": "Mon-Fri 08:00-17:00", "fee": "35000 RWF", "image": "https://randomuser.me/api/portraits/women/42.jpg", "hospital": "Kigali University Teaching Hospital", "rating": 4.7, "languages": ["Kinyarwanda", "English"], "city": "Kigali" },
+    { "id": 16, "name": "Dr. Romain Mbabazi", "specialty": "Infectious Disease", "experience": "9 years", "hours": "Mon-Fri 09:00-16:00", "fee": "36000 RWF", "image": "https://randomuser.me/api/portraits/men/55.jpg", "hospital": "Kigali University Teaching Hospital", "rating": 4.8, "languages": ["Kinyarwanda", "English", "French"], "city": "Kigali" },
+    { "id": 17, "name": "Dr. Jacqueline Mugwaneza", "specialty": "General Practitioner", "experience": "6 years", "hours": "Mon-Sat 07:00-18:00", "fee": "18000 RWF", "image": "https://randomuser.me/api/portraits/women/36.jpg", "hospital": "Muhima Polyclinic", "rating": 4.4, "languages": ["Kinyarwanda", "English"], "city": "Kigali" },
+    { "id": 18, "name": "Dr. Moses Kamanzi", "specialty": "Pediatrician", "experience": "8 years", "hours": "Mon-Fri 08:30-16:30", "fee": "27000 RWF", "image": "https://randomuser.me/api/portraits/men/40.jpg", "hospital": "Kigali Central Hospital", "rating": 4.6, "languages": ["Kinyarwanda", "English", "French"], "city": "Kigali" },
+    { "id": 19, "name": "Dr. Christine Kabasha", "specialty": "Obstetrician", "experience": "13 years", "hours": "Mon-Fri 08:00-17:00", "fee": "38000 RWF", "image": "https://randomuser.me/api/portraits/women/38.jpg", "hospital": "King Faisal Hospital", "rating": 4.7, "languages": ["Kinyarwanda", "French"], "city": "Kigali" },
+    { "id": 20, "name": "Dr. Henry Muneza", "specialty": "Orthopedist", "experience": "9 years", "hours": "Mon-Fri 09:00-16:00", "fee": "30000 RWF", "image": "https://randomuser.me/api/portraits/men/44.jpg", "hospital": "Rwanda Medical Center", "rating": 4.5, "languages": ["Kinyarwanda", "English"], "city": "Kigali" },
+    { "id": 21, "name": "Dr. Diana Izere", "specialty": "Psychiatrist", "experience": "8 years", "hours": "Tue-Fri 10:00-16:00", "fee": "29000 RWF", "image": "https://randomuser.me/api/portraits/women/44.jpg", "hospital": "Kigali Central Hospital", "rating": 4.5, "languages": ["Kinyarwanda", "English", "French"], "city": "Kigali" },
+    { "id": 22, "name": "Dr. Oscar Habiyakire", "specialty": "Gastroenterologist", "experience": "10 years", "hours": "Mon-Fri 09:00-17:00", "fee": "31000 RWF", "image": "https://randomuser.me/api/portraits/men/48.jpg", "hospital": "Rwanda Medical Center", "rating": 4.6, "languages": ["Kinyarwanda", "English", "French"], "city": "Kigali" },
+    { "id": 23, "name": "Dr. Fabienne Ntawigaya", "specialty": "Dermatologist", "experience": "7 years", "hours": "Mon-Fri 10:00-15:00", "fee": "24000 RWF", "image": "https://randomuser.me/api/portraits/women/50.jpg", "hospital": "King Faisal Hospital", "rating": 4.4, "languages": ["Kinyarwanda", "French"], "city": "Kigali" },
+    { "id": 24, "name": "Dr. Patrick Ndayisaba", "specialty": "Surgeon", "experience": "16 years", "hours": "Mon-Fri 08:00-17:00", "fee": "50000 RWF", "image": "https://randomuser.me/api/portraits/men/65.jpg", "hospital": "Kigali University Teaching Hospital", "rating": 4.8, "languages": ["Kinyarwanda", "English", "French"], "city": "Kigali" },
+    { "id": 25, "name": "Dr. Angelique Ishimwe", "specialty": "Radiologist", "experience": "10 years", "hours": "Mon-Fri 08:00-16:00", "fee": "28000 RWF", "image": "https://randomuser.me/api/portraits/women/40.jpg", "hospital": "Rwanda Medical Center", "rating": 4.6, "languages": ["Kinyarwanda", "English"], "city": "Kigali" },
+    { "id": 26, "name": "Dr. Samuel Kamali", "specialty": "ENT Specialist", "experience": "9 years", "hours": "Mon-Fri 09:00-16:00", "fee": "24000 RWF", "image": "https://randomuser.me/api/portraits/men/70.jpg", "hospital": "Kigali Central Hospital", "rating": 4.5, "languages": ["Kinyarwanda", "English", "French"], "city": "Kigali" },
+    { "id": 27, "name": "Dr. Beatrice Mutoni", "specialty": "Ophthalmologist", "experience": "11 years", "hours": "Mon-Fri 08:30-16:30", "fee": "26000 RWF", "image": "https://randomuser.me/api/portraits/women/48.jpg", "hospital": "King Faisal Hospital", "rating": 4.7, "languages": ["Kinyarwanda", "English"], "city": "Kigali" },
+    { "id": 28, "name": "Dr. Clement Kazungu", "specialty": "Urologist", "experience": "8 years", "hours": "Mon-Thu 10:00-16:00", "fee": "32000 RWF", "image": "https://randomuser.me/api/portraits/men/75.jpg", "hospital": "Rwanda Medical Center", "rating": 4.4, "languages": ["Kinyarwanda", "English"], "city": "Kigali" },
+    { "id": 29, "name": "Dr. Marguerite Uwizeyimana", "specialty": "Rheumatologist", "experience": "7 years", "hours": "Tue-Fri 09:00-16:00", "fee": "27000 RWF", "image": "https://randomuser.me/api/portraits/women/56.jpg", "hospital": "Kigali Central Hospital", "rating": 4.6, "languages": ["Kinyarwanda", "French", "English"], "city": "Kigali" },
+    { "id": 30, "name": "Dr. Felix Nkosi", "specialty": "Pulmonologist", "experience": "13 years", "hours": "Mon-Fri 08:00-17:00", "fee": "31000 RWF", "image": "https://randomuser.me/api/portraits/men/80.jpg", "hospital": "King Faisal Hospital", "rating": 4.7, "languages": ["Kinyarwanda", "English", "French"], "city": "Kigali" }
+  ],
+  "medicalConditions": [
+    {
+      "id": 1,
+      "name": "Malaria",
+      "description": "Mosquito-borne infectious disease",
+      "prevalence": "High",
+      "icon": "🦟",
+      "treatments": ["Artemisinin-based", "Chloroquine", "Quinine"],
+      "specialists": [3, 7]
+    },
+    {
+      "id": 2,
+      "name": "Hypertension",
+      "description": "High blood pressure condition",
+      "prevalence": "Common",
+      "icon": "💓",
+      "treatments": ["ACE inhibitors", "Beta-blockers", "Diuretics"],
+      "specialists": [2]
+    },
+    {
+      "id": 3,
+      "name": "Diabetes Type 2",
+      "description": "Metabolic disorder affecting blood sugar",
+      "prevalence": "Common",
+      "icon": "🩺",
+      "treatments": ["Metformin", "Insulin", "Lifestyle changes"],
+      "specialists": [1, 10]
+    },
+    {
+      "id": 4,
+      "name": "Typhoid Fever",
+      "description": "Bacterial infection from contaminated water/food",
+      "prevalence": "Moderate",
+      "icon": "🌡️",
+      "treatments": ["Fluoroquinolones", "Cephalosporins", "Supportive care"],
+      "specialists": [1, 10]
+    },
+    {
+      "id": 5,
+      "name": "Respiratory Infection",
+      "description": "Upper and lower respiratory tract infections",
+      "prevalence": "High",
+      "icon": "💨",
+      "treatments": ["Antibiotics", "Antivirals", "Bronchodilators"],
+      "specialists": [1]
+    },
+    {
+      "id": 6,
+      "name": "Childhood Malnutrition",
+      "description": "Inadequate nutrient intake in children",
+      "prevalence": "Moderate",
+      "icon": "👶",
+      "treatments": ["Nutritional supplementation", "RUTF", "Counseling"],
+      "specialists": [3]
+    },
+    {
+      "id": 7,
+      "name": "Maternal Complications",
+      "description": "Pregnancy and childbirth related issues",
+      "prevalence": "Moderate",
+      "icon": "🤰",
+      "treatments": ["Antenatal care", "Emergency obstetric care", "Postnatal care"],
+      "specialists": [5]
+    },
+    {
+      "id": 8,
+      "name": "Skin Conditions",
+      "description": "Dermatological issues including fungal infections",
+      "prevalence": "Common",
+      "icon": "🔴",
+      "treatments": ["Antifungals", "Topical steroids", "Antibiotics"],
+      "specialists": [6]
+    },
+    {
+      "id": 9,
+      "name": "Anxiety & Depression",
+      "description": "Mental health conditions",
+      "prevalence": "Common",
+      "icon": "😟",
+      "treatments": ["Psychotherapy", "SSRIs", "Counseling"],
+      "specialists": [7]
+    },
+    {
+      "id": 10,
+      "name": "Bone Fractures",
+      "description": "Broken bones requiring orthopedic care",
+      "prevalence": "Common",
+      "icon": "🦴",
+      "treatments": ["Immobilization", "Surgery", "Physical therapy"],
+      "specialists": [8]
+    }
+  ],
+  "insurance": [
+    {
+      "id": 1,
+      "name": "RSSB",
+      "fullName": "Rwanda Social Security Board",
+      "type": "Government",
+      "coverage": "85%",
+      "benefits": ["Inpatient", "Outpatient", "Emergency"],
+      "conditions": "For formal sector employees"
+    },
+    {
+      "id": 2,
+      "name": "IMR",
+      "fullName": "Inshuti Mu Mahoro",
+      "type": "Community-based",
+      "coverage": "80%",
+      "benefits": ["Basic healthcare", "Inpatient", "Outpatient"],
+      "conditions": "For informal sector"
+    },
+    {
+      "id": 3,
+      "name": "RAMA",
+      "fullName": "Rashid Abduljuma",
+      "type": "Private",
+      "coverage": "90%",
+      "benefits": ["Premium care", "All services", "Emergency"],
+      "conditions": "Private subscribers"
+    },
+    {
+      "id": 4,
+      "name": "Out-of-pocket",
+      "fullName": "Direct Payment",
+      "type": "No Insurance",
+      "coverage": "0%",
+      "benefits": ["Full fee payment required"],
+      "conditions": "Uninsured patients"
+    }
+  ],
+  "patientRecords": [
+    {
+      "id": "1",
+      "date": "2026-03-20",
+      "day": "Fri",
+      "time": "09:00 - 09:30",
+      "patientName": "Jean Pierre Nzabamwita",
+      "doctorName": "Dr. Jean Mukasine",
+      "issue": "Hypertension Follow-up",
+      "diagnosis": "Stage 2 Hypertension",
+      "treatment": "Continued Lisinopril 10mg daily",
+      "documents": true,
+      "status": "Past",
+      "notes": "Blood pressure stable at 138/88. Continue current medication.",
+      "consultations": [
+        {
+          "id": "c1",
+          "date": "2026-03-20",
+          "time": "09:00",
+          "doctorName": "Dr. Jean Mukasine",
+          "notes": "Patient presents with stable blood pressure readings. Continue current management.",
+          "suggestedMedications": [
+            { "name": "Lisinopril", "dosage": "10mg", "frequency": "Once daily", "duration": "Ongoing" }
+          ]
+        }
+      ],
+      "allNotes": "Patient compliant with medication regimen. No side effects reported.",
+      "medications": [
+        { "name": "Lisinopril", "dosage": "10mg", "frequency": "Once daily", "status": "Active" }
+      ]
+    },
+    {
+      "id": "2",
+      "date": "2026-03-21",
+      "day": "Sat",
+      "time": "10:30 - 11:00",
+      "patientName": "Alice Uwirimana",
+      "doctorName": "Dr. Marie Ikirezi",
+      "issue": "Pediatric Fever",
+      "diagnosis": "Fever investigation",
+      "treatment": "Paracetamol 15mg/kg, hydration",
+      "documents": true,
+      "status": "Past",
+      "notes": "Child fever resolved after medication. Monitor for 48 hours.",
+      "consultations": [
+        {
+          "id": "c1",
+          "date": "2026-03-21",
+          "time": "10:30",
+          "doctorName": "Dr. Marie Ikirezi",
+          "notes": "Child presenting with fever of 38.5°C. No other symptoms observed.",
+          "suggestedMedications": [
+            { "name": "Paracetamol", "dosage": "15mg/kg", "frequency": "Every 6 hours", "duration": "3 days" }
+          ]
+        }
+      ],
+      "allNotes": "Parents instructed on fever management and hydration. Follow-up if fever persists.",
+      "medications": [
+        { "name": "Paracetamol", "dosage": "15mg/kg", "frequency": "Every 6 hours", "status": "Active" }
+      ]
+    },
+    {
+      "id": "3",
+      "date": "2026-03-22",
+      "day": "Sun",
+      "time": "02:00 - 02:30",
+      "patientName": "Sylvester Tuyishimire",
+      "doctorName": "Dr. Sylvain Uwizeye",
+      "issue": "Cardiac Assessment",
+      "diagnosis": "Mild left ventricular hypertrophy",
+      "treatment": "Enalapril 5mg daily, low sodium diet",
+      "documents": true,
+      "status": "Past",
+      "notes": "EKG shows mild changes. Refer to cardiology follow-up.",
+      "consultations": [
+        {
+          "id": "c1",
+          "date": "2026-03-22",
+          "time": "02:00",
+          "doctorName": "Dr. Sylvain Uwizeye",
+          "notes": "Patient presenting for cardiac assessment. EKG performed and shows mild LVH. Recommend low sodium diet.",
+          "suggestedMedications": [
+            { "name": "Enalapril", "dosage": "5mg", "frequency": "Once daily", "duration": "Ongoing" }
+          ]
+        }
+      ],
+      "allNotes": "Patient educated on dietary modifications. Scheduled for follow-up echocardiogram in 3 months.",
+      "medications": [
+        { "name": "Enalapril", "dosage": "5mg", "frequency": "Once daily", "status": "Active" }
+      ]
+    },
+    {
+      "id": "4",
+      "date": "2026-03-23",
+      "day": "Mon",
+      "time": "08:00 - 08:30",
+      "patientName": "Grace Kamanzi",
+      "doctorName": "Dr. Grace Mukantabana",
+      "issue": "Antenatal Care",
+      "diagnosis": "Pregnancy - 28 weeks",
+      "treatment": "Prenatal vitamins, blood tests ordered",
+      "documents": true,
+      "status": "Past",
+      "notes": "Normal pregnancy progression. Schedule ultrasound.",
+      "consultations": [
+        {
+          "id": "c1",
+          "date": "2026-03-23",
+          "time": "08:00",
+          "doctorName": "Dr. Grace Mukantabana",
+          "notes": "Patient at 28 weeks of pregnancy. Ultrasound shows normal fetal development. All vital signs stable.",
+          "suggestedMedications": [
+            { "name": "Prenatal Vitamins", "dosage": "1 tablet", "frequency": "Once daily", "duration": "Until delivery" }
+          ]
+        }
+      ],
+      "allNotes": "Patient counseled on nutrition and exercise. Next appointment in 2 weeks.",
+      "medications": [
+        { "name": "Prenatal Vitamins", "dosage": "1 tablet", "frequency": "Once daily", "status": "Active" }
+      ]
+    },
+    {
+      "id": "5",
+      "date": "2026-03-24",
+      "day": "Tue",
+      "time": "03:00 - 03:30",
+      "patientName": "Emmanuel Habimana",
+      "doctorName": "Dr. Paul Hakizimana",
+      "issue": "Post-operative Review",
+      "diagnosis": "Post-operative day 5",
+      "treatment": "Wound care, antibiotics, pain management",
+      "documents": true,
+      "status": "Past",
+      "notes": "Wound healing well. Continue prescribed medications.",
+      "consultations": [
+        {
+          "id": "c1",
+          "date": "2026-03-24",
+          "time": "03:00",
+          "doctorName": "Dr. Paul Hakizimana",
+          "notes": "Post-operative day 5. Wound inspection shows good healing. No signs of infection.",
+          "suggestedMedications": [
+            { "name": "Amoxicillin", "dosage": "500mg", "frequency": "Three times daily", "duration": "5 days" },
+            { "name": "Paracetamol", "dosage": "500mg", "frequency": "Every 6 hours", "duration": "As needed" }
+          ]
+        }
+      ],
+      "allNotes": "Patient advised to keep wound clean and dry. Return for suture removal in 5 days.",
+      "medications": [
+        { "name": "Amoxicillin", "dosage": "500mg", "frequency": "Three times daily", "status": "Active" },
+        { "name": "Paracetamol", "dosage": "500mg", "frequency": "Every 6 hours", "status": "Active" }
+      ]
+    },
+    {
+      "id": "6",
+      "date": "2026-03-25",
+      "day": "Wed",
+      "time": "11:00 - 11:30",
+      "patientName": "Rosalie Nigarura",
+      "doctorName": "Dr. Innocent Ndahiro",
+      "issue": "Skin Fungal Infection",
+      "diagnosis": "Tinea corporis",
+      "treatment": "Topical antifungal cream twice daily",
+      "documents": false,
+      "status": "Past",
+      "notes": "Apply lotion for 3 weeks. Avoid scratching.",
+      "consultations": [
+        {
+          "id": "c1",
+          "date": "2026-03-25",
+          "time": "11:00",
+          "doctorName": "Dr. Innocent Ndahiro",
+          "notes": "Patient presents with Tinea corporis on trunk and limbs. Culture taken for confirmation.",
+          "suggestedMedications": [
+            { "name": "Clotrimazole Cream", "dosage": "1%", "frequency": "Twice daily", "duration": "3 weeks" }
+          ]
+        }
+      ],
+      "allNotes": "Patient educated on hygiene and avoiding moist conditions. Review in 2 weeks.",
+      "medications": [
+        { "name": "Clotrimazole Cream", "dosage": "1%", "frequency": "Twice daily", "status": "Active" }
+      ]
+    },
+    {
+      "id": "7",
+      "date": "2026-03-26",
+      "day": "Thu",
+      "time": "01:30 - 02:00",
+      "patientName": "Peter Nsanzimana",
+      "doctorName": "Dr. Denis Murwanashyaka",
+      "issue": "Gastric Ulcer Management",
+      "diagnosis": "Peptic ulcer disease",
+      "treatment": "Omeprazole 20mg daily, avoid spicy food",
+      "documents": true,
+      "status": "Past",
+      "notes": "Better adherence to medication needed. Repeat endoscopy in 6 weeks.",
+      "consultations": [
+        {
+          "id": "c1",
+          "date": "2026-03-26",
+          "time": "01:30",
+          "doctorName": "Dr. Denis Murwanashyaka",
+          "notes": "Patient with peptic ulcer disease. Previous endoscopy showed duodenal ulcer. Patient reports improvement.",
+          "suggestedMedications": [
+            { "name": "Omeprazole", "dosage": "20mg", "frequency": "Once daily", "duration": "6 weeks" }
+          ]
+        }
+      ],
+      "allNotes": "Patient counseled on diet and medication compliance. Avoid NSAIDs and spicy foods.",
+      "medications": [
+        { "name": "Omeprazole", "dosage": "20mg", "frequency": "Once daily", "status": "Active" }
+      ]
+    },
+    {
+      "id": "8",
+      "date": "2026-03-27",
+      "day": "Fri",
+      "time": "09:15 - 09:45",
+      "patientName": "Josette Mukamusoni",
+      "doctorName": "Dr. Florence Umutoniwase",
+      "issue": "Neurological Assessment",
+      "diagnosis": "Chronic headaches",
+      "treatment": "Propranolol 40mg daily, lifestyle modifications",
+      "documents": false,
+      "status": "Past",
+      "notes": "Consider MRI if headaches persist. Track triggers.",
+      "consultations": [
+        {
+          "id": "c1",
+          "date": "2026-03-27",
+          "time": "09:15",
+          "doctorName": "Dr. Florence Umutoniwase",
+          "notes": "Patient with chronic migraine headaches. Currently experiencing 3-4 episodes per week. No visual aura noted.",
+          "suggestedMedications": [
+            { "name": "Propranolol", "dosage": "40mg", "frequency": "Once daily", "duration": "Ongoing" }
+          ]
+        }
+      ],
+      "allNotes": "Patient advised to maintain headache diary and identify triggers. MRI may be considered if symptoms worsen.",
+      "medications": [
+        { "name": "Propranolol", "dosage": "40mg", "frequency": "Once daily", "status": "Active" }
+      ]
+    },
+    {
+      "id": "9",
+      "date": "2026-03-28",
+      "day": "Sat",
+      "time": "04:00 - 04:30",
+      "patientName": "Theophile Karuhimbi",
+      "doctorName": "Dr. Clement Karekezi",
+      "issue": "ENT Consultation",
+      "diagnosis": "Chronic sinusitis",
+      "treatment": "Nasal decongestant, saline rinse, antibiotics",
+      "documents": true,
+      "status": "Today",
+      "notes": "Consider CT scan if symptoms worsen.",
+      "consultations": [
+        {
+          "id": "c1",
+          "date": "2026-03-28",
+          "time": "04:00",
+          "doctorName": "Dr. Clement Karekezi",
+          "notes": "Patient with chronic sinusitis lasting more than 12 weeks. Nasal endoscopy reveals mucosal edema.",
+          "suggestedMedications": [
+            { "name": "Mometasone Nasal Spray", "dosage": "50mcg", "frequency": "Twice daily", "duration": "4 weeks" },
+            { "name": "Amoxicillin-Clavulanate", "dosage": "875mg", "frequency": "Twice daily", "duration": "10 days" }
+          ]
+        }
+      ],
+      "allNotes": "Patient advised to use saline irrigations twice daily. Follow-up in 4 weeks.",
+      "medications": [
+        { "name": "Mometasone Nasal Spray", "dosage": "50mcg", "frequency": "Twice daily", "status": "Active" },
+        { "name": "Amoxicillin-Clavulanate", "dosage": "875mg", "frequency": "Twice daily", "status": "Active" }
+      ]
+    },
+    {
+      "id": "10",
+      "date": "2026-03-29",
+      "day": "Sun",
+      "time": "10:00 - 10:30",
+      "patientName": "Marianne Uwimana",
+      "doctorName": "Dr. Hortense Nzamwita",
+      "issue": "Eye Examination",
+      "diagnosis": "Myopia progression",
+      "treatment": "New glasses prescription issued",
+      "documents": false,
+      "status": "Upcoming",
+      "notes": "Vision corrected to 20/20 with glasses. Annual check.",
+      "consultations": [
+        {
+          "id": "c1",
+          "date": "2026-03-29",
+          "time": "10:00",
+          "doctorName": "Dr. Hortense Nzamwita",
+          "notes": "Patient with progressive myopia. Refractive error increased by 0.5D in left eye. New prescription issued.",
+          "suggestedMedications": []
+        }
+      ],
+      "allNotes": "Patient counseled on eye care and UV protection. Next annual examination scheduled.",
+      "medications": []
+    }
+  ],
+  "appointments": [
+    {
+      "id": 1,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Jean Mukasine",
+      "doctorImage": "https://randomuser.me/api/portraits/men/32.jpg",
+      "specialty": "General Practitioner",
+      "hospital": "Kigali Central Hospital",
+      "time": "09:00 - 09:30",
+      "date": "Yesterday",
+      "dateObj": "2026-03-27",
+      "status": "Completed",
+      "type": "In-Person",
+      "fee": "15000 RWF",
+      "notes": "Routine checkup completed successfully"
+    },
+    {
+      "id": 2,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Marie Ikirezi",
+      "doctorImage": "https://randomuser.me/api/portraits/women/45.jpg",
+      "specialty": "Pediatrician",
+      "hospital": "Kigali Central Hospital",
+      "time": "10:30 - 11:00",
+      "date": "Yesterday",
+      "dateObj": "2026-03-27",
+      "status": "Completed",
+      "type": "In-Person",
+      "fee": "28000 RWF",
+      "notes": "Child vaccination appointment completed"
+    },
+    {
+      "id": 3,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Sylvain Uwizeye",
+      "doctorImage": "https://randomuser.me/api/portraits/men/45.jpg",
+      "specialty": "Cardiologist",
+      "hospital": "King Faisal Hospital",
+      "time": "02:00 - 02:30",
+      "date": "Yesterday",
+      "dateObj": "2026-03-27",
+      "status": "Completed",
+      "type": "Video Call",
+      "fee": "35000 RWF",
+      "notes": "Cardiac consultation with EKG performed"
+    },
+    {
+      "id": 4,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Grace Mukantabana",
+      "doctorImage": "https://randomuser.me/api/portraits/women/68.jpg",
+      "specialty": "Obstetrician",
+      "hospital": "Rwanda Medical Center",
+      "time": "08:00 - 08:30",
+      "date": "Today",
+      "dateObj": "2026-03-28",
+      "status": "Confirmed",
+      "type": "In-Person",
+      "fee": "40000 RWF",
+      "notes": "Antenatal care appointment - 28 weeks"
+    },
+    {
+      "id": 5,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Paul Hakizimana",
+      "doctorImage": "https://randomuser.me/api/portraits/men/78.jpg",
+      "specialty": "Surgeon",
+      "hospital": "King Faisal Hospital",
+      "time": "03:00 - 03:30",
+      "date": "Today",
+      "dateObj": "2026-03-28",
+      "status": "Confirmed",
+      "type": "In-Person",
+      "fee": "50000 RWF",
+      "notes": "Post-operative check-up scheduled"
+    },
+    {
+      "id": 6,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Innocent Ndahiro",
+      "doctorImage": "https://randomuser.me/api/portraits/men/56.jpg",
+      "specialty": "Dermatologist",
+      "hospital": "Rwanda Medical Center",
+      "time": "11:00 - 11:30",
+      "date": "Tomorrow",
+      "dateObj": "2026-03-29",
+      "status": "Pending",
+      "type": "Video Call",
+      "fee": "24000 RWF",
+      "notes": "Skin condition follow-up"
+    },
+    {
+      "id": 7,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Denis Murwanashyaka",
+      "doctorImage": "https://randomuser.me/api/portraits/men/12.jpg",
+      "specialty": "Gastroenterologist",
+      "hospital": "Rwanda Medical Center",
+      "time": "01:30 - 02:00",
+      "date": "Tomorrow",
+      "dateObj": "2026-03-29",
+      "status": "Pending",
+      "type": "In-Person",
+      "fee": "31000 RWF",
+      "notes": "Gastric ulcer management consultation"
+    },
+    {
+      "id": 8,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Florence Umutoniwase",
+      "doctorImage": "https://randomuser.me/api/portraits/women/23.jpg",
+      "specialty": "Neurologist",
+      "hospital": "King Faisal Hospital",
+      "time": "09:15 - 09:45",
+      "date": "Next week",
+      "dateObj": "2026-03-30",
+      "status": "Scheduled",
+      "type": "Video Call",
+      "fee": "38000 RWF",
+      "notes": "Neurological assessment for chronic headaches"
+    },
+    {
+      "id": 9,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Clement Karekezi",
+      "doctorImage": "https://randomuser.me/api/portraits/men/34.jpg",
+      "specialty": "ENT Specialist",
+      "hospital": "Kigali Central Hospital",
+      "time": "04:00 - 04:30",
+      "date": "Next week",
+      "dateObj": "2026-03-31",
+      "status": "Scheduled",
+      "type": "In-Person",
+      "fee": "24000 RWF",
+      "notes": "Chronic sinusitis consultation"
+    },
+    {
+      "id": 10,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Hortense Nzamwita",
+      "doctorImage": "https://randomuser.me/api/portraits/women/89.jpg",
+      "specialty": "Ophthalmologist",
+      "hospital": "King Faisal Hospital",
+      "time": "10:00 - 10:30",
+      "date": "Next week",
+      "dateObj": "2026-04-01",
+      "status": "Scheduled",
+      "type": "In-Person",
+      "fee": "26000 RWF",
+      "notes": "Annual eye examination"
+    },
+    {
+      "id": 11,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Sylvain Uwizeye",
+      "doctorImage": "https://randomuser.me/api/portraits/men/45.jpg",
+      "specialty": "Cardiologist",
+      "hospital": "King Faisal Hospital",
+      "time": "14:00 - 14:30",
+      "date": "April 2",
+      "dateObj": "2026-04-02",
+      "status": "Scheduled",
+      "type": "In-Person",
+      "fee": "35000 RWF",
+      "notes": "Hypertension management follow-up"
+    },
+    {
+      "id": 12,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Grace Mukantabana",
+      "doctorImage": "https://randomuser.me/api/portraits/women/68.jpg",
+      "specialty": "Obstetrician",
+      "hospital": "Rwanda Medical Center",
+      "time": "09:30 - 10:00",
+      "date": "April 3",
+      "dateObj": "2026-04-03",
+      "status": "Scheduled",
+      "type": "In-Person",
+      "fee": "40000 RWF",
+      "notes": "Antenatal care - 32 weeks"
+    },
+    {
+      "id": 13,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Paul Hakizimana",
+      "doctorImage": "https://randomuser.me/api/portraits/men/78.jpg",
+      "specialty": "Surgeon",
+      "hospital": "King Faisal Hospital",
+      "time": "11:00 - 11:30",
+      "date": "April 4",
+      "dateObj": "2026-04-04",
+      "status": "Confirmed",
+      "type": "In-Person",
+      "fee": "50000 RWF",
+      "notes": "Post-operative follow-up"
+    },
+    {
+      "id": 14,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Jean Mukasine",
+      "doctorImage": "https://randomuser.me/api/portraits/men/32.jpg",
+      "specialty": "General Practitioner",
+      "hospital": "Kigali Central Hospital",
+      "time": "10:00 - 10:30",
+      "date": "April 5",
+      "dateObj": "2026-04-05",
+      "status": "Pending",
+      "type": "In-Person",
+      "fee": "15000 RWF",
+      "notes": "Routine physical examination"
+    },
+    {
+      "id": 15,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Florence Umutoniwase",
+      "doctorImage": "https://randomuser.me/api/portraits/women/23.jpg",
+      "specialty": "Neurologist",
+      "hospital": "King Faisal Hospital",
+      "time": "15:00 - 15:30",
+      "date": "April 6",
+      "dateObj": "2026-04-06",
+      "status": "Scheduled",
+      "type": "Video Call",
+      "fee": "38000 RWF",
+      "notes": "Migraine management review"
+    },
+    {
+      "id": 16,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Innocent Ndahiro",
+      "doctorImage": "https://randomuser.me/api/portraits/men/56.jpg",
+      "specialty": "Dermatologist",
+      "hospital": "Rwanda Medical Center",
+      "time": "13:00 - 13:30",
+      "date": "April 7",
+      "dateObj": "2026-04-07",
+      "status": "Scheduled",
+      "type": "Video Call",
+      "fee": "24000 RWF",
+      "notes": "Skin condition review"
+    },
+    {
+      "id": 17,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Denis Murwanashyaka",
+      "doctorImage": "https://randomuser.me/api/portraits/men/12.jpg",
+      "specialty": "Gastroenterologist",
+      "hospital": "Rwanda Medical Center",
+      "time": "10:30 - 11:00",
+      "date": "April 8",
+      "dateObj": "2026-04-08",
+      "status": "Confirmed",
+      "type": "In-Person",
+      "fee": "31000 RWF",
+      "notes": "Gastric ulcer follow-up endoscopy"
+    },
+    {
+      "id": 18,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Marie Ikirezi",
+      "doctorImage": "https://randomuser.me/api/portraits/women/45.jpg",
+      "specialty": "Pediatrician",
+      "hospital": "Kigali Central Hospital",
+      "time": "09:00 - 09:30",
+      "date": "April 9",
+      "dateObj": "2026-04-09",
+      "status": "Scheduled",
+      "type": "In-Person",
+      "fee": "28000 RWF",
+      "notes": "Child vaccination - routine booster"
+    },
+    {
+      "id": 19,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Théo Habimana",
+      "doctorImage": "https://randomuser.me/api/portraits/men/89.jpg",
+      "specialty": "Orthopedist",
+      "hospital": "King Faisal Hospital",
+      "time": "11:00 - 11:30",
+      "date": "April 10",
+      "dateObj": "2026-04-10",
+      "status": "Scheduled",
+      "type": "In-Person",
+      "fee": "32000 RWF",
+      "notes": "Bone fracture follow-up X-ray"
+    },
+    {
+      "id": 20,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Viviane Mukankusi",
+      "doctorImage": "https://randomuser.me/api/portraits/women/78.jpg",
+      "specialty": "Psychiatrist",
+      "hospital": "Rwanda Medical Center",
+      "time": "14:00 - 14:30",
+      "date": "April 11",
+      "dateObj": "2026-04-11",
+      "status": "Pending",
+      "type": "Video Call",
+      "fee": "27000 RWF",
+      "notes": "Mental health counseling session"
+    },
+    {
+      "id": 21,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Clement Karekezi",
+      "doctorImage": "https://randomuser.me/api/portraits/men/34.jpg",
+      "specialty": "ENT Specialist",
+      "hospital": "Kigali Central Hospital",
+      "time": "10:00 - 10:30",
+      "date": "April 12",
+      "dateObj": "2026-04-12",
+      "status": "Confirmed",
+      "type": "In-Person",
+      "fee": "24000 RWF",
+      "notes": "Sinusitis treatment evaluation"
+    },
+    {
+      "id": 22,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Alain Sebisoni",
+      "doctorImage": "https://randomuser.me/api/portraits/men/50.jpg",
+      "specialty": "Cardiologist",
+      "hospital": "King Faisal Hospital",
+      "time": "15:00 - 15:30",
+      "date": "April 13",
+      "dateObj": "2026-04-13",
+      "status": "Scheduled",
+      "type": "Video Call",
+      "fee": "35000 RWF",
+      "notes": "Cardiac ultrasound scheduled"
+    },
+    {
+      "id": 23,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Sarah Nkurikiye",
+      "doctorImage": "https://randomuser.me/api/portraits/women/42.jpg",
+      "specialty": "Anesthesiologist",
+      "hospital": "Rwanda Medical Center",
+      "time": "08:00 - 08:30",
+      "date": "April 14",
+      "dateObj": "2026-04-14",
+      "status": "Pending",
+      "type": "In-Person",
+      "fee": "25000 RWF",
+      "notes": "Pre-operative anesthesia consultation"
+    },
+    {
+      "id": 24,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Patrick Ndayisaba",
+      "doctorImage": "https://randomuser.me/api/portraits/men/65.jpg",
+      "specialty": "Surgeon",
+      "hospital": "King Faisal Hospital",
+      "time": "13:30 - 14:00",
+      "date": "April 15",
+      "dateObj": "2026-04-15",
+      "status": "Confirmed",
+      "type": "In-Person",
+      "fee": "50000 RWF",
+      "notes": "Surgical procedure scheduled"
+    },
+    {
+      "id": 25,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Beatrice Mutoni",
+      "doctorImage": "https://randomuser.me/api/portraits/women/48.jpg",
+      "specialty": "Ophthalmologist",
+      "hospital": "Kigali Central Hospital",
+      "time": "09:00 - 09:30",
+      "date": "April 16",
+      "dateObj": "2026-04-16",
+      "status": "Scheduled",
+      "type": "In-Person",
+      "fee": "26000 RWF",
+      "notes": "Contact lens fitting appointment"
+    },
+    {
+      "id": 26,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Romain Mbabazi",
+      "doctorImage": "https://randomuser.me/api/portraits/men/55.jpg",
+      "specialty": "Infectious Disease",
+      "hospital": "Rwanda Medical Center",
+      "time": "11:00 - 11:30",
+      "date": "April 17",
+      "dateObj": "2026-04-17",
+      "status": "Pending",
+      "type": "Video Call",
+      "fee": "33000 RWF",
+      "notes": "Infection treatment follow-up"
+    },
+    {
+      "id": 27,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Angelique Ishimwe",
+      "doctorImage": "https://randomuser.me/api/portraits/women/40.jpg",
+      "specialty": "Radiologist",
+      "hospital": "Rwanda Medical Center",
+      "time": "14:00 - 14:30",
+      "date": "April 18",
+      "dateObj": "2026-04-18",
+      "status": "Confirmed",
+      "type": "In-Person",
+      "fee": "30000 RWF",
+      "notes": "CT scan appointment"
+    },
+    {
+      "id": 28,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Moses Kamanzi",
+      "doctorImage": "https://randomuser.me/api/portraits/men/40.jpg",
+      "specialty": "Pediatrician",
+      "hospital": "Kigali Central Hospital",
+      "time": "10:30 - 11:00",
+      "date": "April 19",
+      "dateObj": "2026-04-19",
+      "status": "Scheduled",
+      "type": "In-Person",
+      "fee": "28000 RWF",
+      "notes": "Child development assessment"
+    },
+    {
+      "id": 29,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Christine Kabasha",
+      "doctorImage": "https://randomuser.me/api/portraits/women/38.jpg",
+      "specialty": "Obstetrician",
+      "hospital": "Rwanda Medical Center",
+      "time": "08:30 - 09:00",
+      "date": "April 20",
+      "dateObj": "2026-04-20",
+      "status": "Confirmed",
+      "type": "In-Person",
+      "fee": "40000 RWF",
+      "notes": "Antenatal care - 36 weeks"
+    },
+    {
+      "id": 30,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Henry Muneza",
+      "doctorImage": "https://randomuser.me/api/portraits/men/44.jpg",
+      "specialty": "Orthopedist",
+      "hospital": "King Faisal Hospital",
+      "time": "15:00 - 15:30",
+      "date": "April 21",
+      "dateObj": "2026-04-21",
+      "status": "Pending",
+      "type": "Video Call",
+      "fee": "32000 RWF",
+      "notes": "Sprain recovery assessment"
+    },
+    {
+      "id": 31,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Oscar Habiyakire",
+      "doctorImage": "https://randomuser.me/api/portraits/men/48.jpg",
+      "specialty": "Gastroenterologist",
+      "hospital": "Rwanda Medical Center",
+      "time": "10:00 - 10:30",
+      "date": "April 22",
+      "dateObj": "2026-04-22",
+      "status": "Confirmed",
+      "type": "In-Person",
+      "fee": "31000 RWF",
+      "notes": "Digestive health consultation"
+    },
+    {
+      "id": 32,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Fabienne Ntawigaya",
+      "doctorImage": "https://randomuser.me/api/portraits/women/50.jpg",
+      "specialty": "Dermatologist",
+      "hospital": "Rwanda Medical Center",
+      "time": "13:00 - 13:30",
+      "date": "April 23",
+      "dateObj": "2026-04-23",
+      "status": "Scheduled",
+      "type": "Video Call",
+      "fee": "24000 RWF",
+      "notes": "Acne treatment plan review"
+    },
+    {
+      "id": 33,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Felix Nkosi",
+      "doctorImage": "https://randomuser.me/api/portraits/men/80.jpg",
+      "specialty": "Pulmonologist",
+      "hospital": "Rwanda Medical Center",
+      "time": "11:00 - 11:30",
+      "date": "April 24",
+      "dateObj": "2026-04-24",
+      "status": "Confirmed",
+      "type": "In-Person",
+      "fee": "29000 RWF",
+      "notes": "Respiratory function test"
+    },
+    {
+      "id": 34,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Diana Izere",
+      "doctorImage": "https://randomuser.me/api/portraits/women/44.jpg",
+      "specialty": "Psychiatrist",
+      "hospital": "Kigali Central Hospital",
+      "time": "14:30 - 15:00",
+      "date": "April 25",
+      "dateObj": "2026-04-25",
+      "status": "Pending",
+      "type": "Video Call",
+      "fee": "29000 RWF",
+      "notes": "Anxiety management therapy"
+    },
+    {
+      "id": 35,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Marguerite Uwizeyimana",
+      "doctorImage": "https://randomuser.me/api/portraits/women/56.jpg",
+      "specialty": "Rheumatologist",
+      "hospital": "Rwanda Medical Center",
+      "time": "09:00 - 09:30",
+      "date": "April 26",
+      "dateObj": "2026-04-26",
+      "status": "Scheduled",
+      "type": "In-Person",
+      "fee": "36000 RWF",
+      "notes": "Arthritis management review"
+    },
+    {
+      "id": 36,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Samuel Kamali",
+      "doctorImage": "https://randomuser.me/api/portraits/men/70.jpg",
+      "specialty": "ENT Specialist",
+      "hospital": "Kigali Central Hospital",
+      "time": "15:00 - 15:30",
+      "date": "April 27",
+      "dateObj": "2026-04-27",
+      "status": "Confirmed",
+      "type": "In-Person",
+      "fee": "24000 RWF",
+      "notes": "Ear infection treatment follow-up"
+    },
+    {
+      "id": 37,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Clement Kazungu",
+      "doctorImage": "https://randomuser.me/api/portraits/men/75.jpg",
+      "specialty": "Urologist",
+      "hospital": "Rwanda Medical Center",
+      "time": "10:00 - 10:30",
+      "date": "April 28",
+      "dateObj": "2026-04-28",
+      "status": "Pending",
+      "type": "Video Call",
+      "fee": "34000 RWF",
+      "notes": "Urological condition evaluation"
+    },
+    {
+      "id": 38,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Jacqueline Mugwaneza",
+      "doctorImage": "https://randomuser.me/api/portraits/women/36.jpg",
+      "specialty": "General Practitioner",
+      "hospital": "Kigali Central Hospital",
+      "time": "11:30 - 12:00",
+      "date": "April 29",
+      "dateObj": "2026-04-29",
+      "status": "Confirmed",
+      "type": "In-Person",
+      "fee": "15000 RWF",
+      "notes": "General health check-up"
+    },
+    {
+      "id": 39,
+      "patientName": "Alice Uwirimana",
+      "patientId": 2,
+      "doctorName": "Dr. Felicity Uwineza",
+      "doctorImage": "https://randomuser.me/api/portraits/women/40.jpg",
+      "specialty": "Pharmacist",
+      "hospital": "Clinic byishimo",
+      "time": "14:00 - 14:30",
+      "date": "April 30",
+      "dateObj": "2026-04-30",
+      "status": "Pending",
+      "type": "In-Person",
+      "fee": "12000 RWF",
+      "notes": "Medication review and counseling"
+    }
+  ],
+  "faqs": [
+    {
+      "id": 1,
+      "category": "General",
+      "question": "What are your operating hours?",
+      "answer": "We operate Monday to Friday 7:00 AM - 6:00 PM, Saturday 8:00 AM - 4:00 PM, and Sunday by appointment only. Emergency services available 24/7."
+    },
+    {
+      "id": 2,
+      "category": "Appointments",
+      "question": "How do I book an appointment?",
+      "answer": "Use our online booking system to select a doctor, date, and time. Payment can be made through Mobile Money, Bank Transfer, or at the clinic."
+    },
+    {
+      "id": 3,
+      "category": "Insurance",
+      "question": "What insurance do you accept?",
+      "answer": "We accept RSSB, IMR, RAMA, and out-of-pocket payments. Verify your coverage details with our reception team."
+    },
+    {
+      "id": 4,
+      "category": "Medications",
+      "question": "Can I get prescriptions filled at your pharmacy?",
+      "answer": "Yes, we have an on-site pharmacy with most common medications. Generic options available for cost-conscious patients."
+    },
+    {
+      "id": 5,
+      "category": "Records",
+      "question": "How can I access my medical records?",
+      "answer": "Request through your patient portal or visit our records department with valid ID. Records are usually available within 2-3 business days."
+    },
+    {
+      "id": 6,
+      "category": "Emergency",
+      "question": "What should I do in case of emergency?",
+      "answer": "Call our emergency line: +250 252 584 960 or go directly to King Faisal Hospital's emergency department."
+    }
+  ],
+  "doctorAvailability": [
+    {
+      "doctorId": 1,
+      "doctorName": "Dr. Jean Mukasine",
+      "month": "May",
+      "year": 2023,
+      "locations": [
+        {
+          "name": "Online",
+          "slots": [1, 8, 15, 22, 29],
+          "times": ["4:00-8:00 pm", "4:00-8:00 pm", "4:00-8:00 pm"]
+        },
+        {
+          "name": "Clinic 1",
+          "slots": [2, 9, 16, 23, 30],
+          "times": ["4:00-8:00 pm", "4:00-8:00 pm", "4:00-8:00 pm"]
+        },
+        {
+          "name": "Clinic 2",
+          "slots": [3, 10, 17, 24, 31],
+          "times": ["4:00-8:00 pm", "4:00-8:00 pm", "4:00-8:00 pm"]
+        }
+      ]
+    },
+    {
+      "doctorId": 2,
+      "doctorName": "Dr. Marie Ikirezi",
+      "month": "May",
+      "year": 2023,
+      "locations": [
+        {
+          "name": "Online",
+          "slots": [2, 9, 16, 23, 30],
+          "times": ["9:00-12:00 pm", "9:00-12:00 pm", "9:00-12:00 pm"]
+        },
+        {
+          "name": "Clinic 2",
+          "slots": [4, 11, 18, 25],
+          "times": ["2:00-5:00 pm", "2:00-5:00 pm", "2:00-5:00 pm"]
+        }
+      ]
+    }
+  ]
+}
