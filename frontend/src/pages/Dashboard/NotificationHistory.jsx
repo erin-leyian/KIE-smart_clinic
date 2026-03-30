@@ -15,13 +15,30 @@ export default function NotificationHistory() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [sortBy, setSortBy] = useState('newest'); // newest, oldest
 
+  const isUuid = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ''));
+
+  const getCurrentUser = () => {
+    try {
+      const raw = localStorage.getItem('user');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  };
+
   const notificationTypes = ['appointment', 'record', 'system', 'confirmed', 'cancelled', 'rescheduled', 'reminder', 'updated'];
 
   const normalizeNotification = (notif = {}) => ({
     ...notif,
-    read: typeof notif.read === 'boolean' ? notif.read : Boolean(notif.isRead),
-    timestamp: notif.timestamp || notif.createdAt || new Date().toISOString(),
-    type: String(notif.type || '').toLowerCase(),
+    id: String(notif.id || `${notif.title || 'notification'}|${notif.message || ''}|${notif.timestamp || notif.createdAt || notif.created_at || ''}`),
+    userId: notif.userId || notif.user_id || notif.recipientId || null,
+    recipientId: notif.recipientId || notif.userId || notif.user_id || null,
+    recipientRole: notif.recipientRole || null,
+    read: typeof notif.read === 'boolean'
+      ? notif.read
+      : (typeof notif.isRead === 'boolean' ? notif.isRead : Boolean(notif.is_read)),
+    timestamp: notif.timestamp || notif.createdAt || notif.created_at || new Date().toISOString(),
+    type: String(notif.type || 'appointment').toLowerCase(),
   });
 
   const mergeNotifications = (apiList = [], localList = []) => {
@@ -41,7 +58,7 @@ export default function NotificationHistory() {
       mergedMap.set(key, {
         ...existing,
         ...normalized,
-        read: Boolean(existing.read && normalized.read),
+        read: Boolean(existing.read || normalized.read),
       });
     });
 
@@ -70,13 +87,20 @@ export default function NotificationHistory() {
   const loadNotifications = async () => {
     setLoading(true);
     const localNotifications = getNotifications().map(normalizeNotification);
+    const currentUser = getCurrentUser();
+    const currentRole = localStorage.getItem('userRole') || currentUser?.role || 'patient';
 
     try {
       const response = await notificationsAPI.getAllNotifications();
       const apiNotifications = (response?.data || []).map(normalizeNotification);
       const merged = mergeNotifications(apiNotifications, localNotifications);
       setNotifications(merged);
-      localStorage.setItem('notifications', JSON.stringify(merged));
+      const persisted = merged.map((item) => ({
+        ...item,
+        recipientId: item.recipientId || item.userId || currentUser?.id || null,
+        recipientRole: item.recipientRole || currentRole,
+      }));
+      localStorage.setItem('notifications', JSON.stringify(persisted));
     } catch {
       setNotifications(localNotifications);
     } finally {
@@ -138,10 +162,12 @@ export default function NotificationHistory() {
   };
 
   const markAsRead = async (id) => {
-    try {
-      await notificationsAPI.markAsRead(id);
-    } catch {
-      // Keep local fallback behavior
+    if (isUuid(id)) {
+      try {
+        await notificationsAPI.markAsRead(id);
+      } catch {
+        // Keep local fallback behavior
+      }
     }
 
     const updated = notifications.map(n =>
@@ -161,8 +187,10 @@ export default function NotificationHistory() {
   };
 
   const markMultipleAsRead = async (ids) => {
+    const backendIds = ids.filter((id) => isUuid(id));
+
     try {
-      await Promise.all(ids.map((id) => notificationsAPI.markAsRead(id)));
+      await Promise.all(backendIds.map((id) => notificationsAPI.markAsRead(id)));
     } catch {
       // Keep local fallback behavior
     }

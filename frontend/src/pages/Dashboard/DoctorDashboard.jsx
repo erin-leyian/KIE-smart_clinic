@@ -22,6 +22,38 @@ export default function DoctorDashboard() {
     averageRating: 4.8,
   });
 
+  const toApiStatus = (status) => {
+    const normalized = String(status || '').toLowerCase();
+    if (['confirmed', 'scheduled', 'pending'].includes(normalized)) return 'scheduled';
+    if (normalized === 'completed') return 'completed';
+    if (normalized === 'cancelled') return 'cancelled';
+    if (normalized === 'no-show') return 'no-show';
+    return 'scheduled';
+  };
+
+  const normalizeAppointment = (apt = {}) => {
+    const date = apt.appointmentDate || apt.appointment_date || apt.date || null;
+    const time = apt.appointmentTime || apt.appointment_time || apt.time || '-';
+    const parsedDate = date ? new Date(`${date}T00:00:00`) : null;
+
+    return {
+      ...apt,
+      date,
+      time,
+      dateObj: parsedDate,
+      patientId: apt.patientId || apt.patient_id,
+      patientName: apt.patientName || 'Patient',
+      location: apt.location || apt.hospital || null,
+      status: toApiStatus(apt.status),
+    };
+  };
+
+  const getUserDisplayName = (profile = {}) => {
+    const fullName = [profile.firstName, profile.lastName].filter(Boolean).join(' ').trim();
+    if (fullName) return fullName;
+    return profile.name || profile.email || 'Doctor';
+  };
+
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     if (!storedUser) {
@@ -44,7 +76,7 @@ export default function DoctorDashboard() {
         const appointmentsData = await appointmentsAPI.getAllAppointments({ 
           doctorId: userData.id 
         });
-        const docAppointments = appointmentsData.appointments || [];
+        const docAppointments = (appointmentsData.data || appointmentsData.appointments || []).map(normalizeAppointment);
         setDoctorAppointments(docAppointments);
 
         // Get unique patient IDs and fetch users
@@ -59,9 +91,11 @@ export default function DoctorDashboard() {
         
         setUniquePatients(patients);
 
-        const completed = docAppointments.filter(apt => apt.status === 'Completed').length;
-        const pending = docAppointments.filter(apt => apt.status === 'Pending').length;
-        const upcoming = docAppointments.filter(apt => apt.status === 'Confirmed' && new Date(apt.date) > new Date()).length;
+  const completed = docAppointments.filter((apt) => apt.status === 'completed').length;
+  const pending = docAppointments.filter((apt) => apt.status === 'scheduled').length;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const upcoming = docAppointments.filter((apt) => apt.status === 'scheduled' && apt.dateObj && apt.dateObj >= today).length;
         
         const consultationHours = (completed * 0.5).toFixed(1);
 
@@ -107,6 +141,7 @@ export default function DoctorDashboard() {
   const getAppointmentsForDate = (date) => {
     const dateStr = date.toISOString().split('T')[0];
     return doctorAppointments.filter(apt => {
+      if (!apt.dateObj || Number.isNaN(new Date(apt.dateObj).getTime())) return false;
       const aptDate = new Date(apt.dateObj).toISOString().split('T')[0];
       return aptDate === dateStr;
     });
@@ -149,7 +184,7 @@ export default function DoctorDashboard() {
         <div className="bg-gradient-to-r from-teal-500 to-teal-600 rounded-lg p-6 text-white shadow-lg">
           <div className="flex items-start justify-between">
             <div>
-              <h1 className="text-3xl font-bold mb-2">Welcome back, Dr. {user?.name}!</h1>
+              <h1 className="text-3xl font-bold mb-2">Welcome back, Dr. {getUserDisplayName(user)}!</h1>
               <p className="text-teal-100">Your weekly schedule at a glance</p>
             </div>
             <div className="text-5xl opacity-10">
@@ -251,11 +286,9 @@ export default function DoctorDashboard() {
                         <div
                           key={apt.id}
                           className={`p-2 rounded text-xs text-white cursor-pointer hover:shadow transition-shadow ${
-                            apt.status === 'Confirmed'
+                            apt.status === 'scheduled'
                               ? 'bg-blue-500'
-                              : apt.status === 'Pending'
-                              ? 'bg-yellow-500'
-                              : apt.status === 'Completed'
+                              : apt.status === 'completed'
                               ? 'bg-green-500'
                               : 'bg-red-500'
                           }`}
@@ -338,7 +371,7 @@ export default function DoctorDashboard() {
 
             <div className="space-y-3">
               {doctorAppointments
-                .filter(apt => apt.status === 'Completed')
+                .filter(apt => apt.status === 'completed')
                 .slice(0, 5)
                 .map((apt) => (
                   <div
@@ -378,7 +411,7 @@ export default function DoctorDashboard() {
                   </div>
                 ))}
 
-              {doctorAppointments.filter(apt => apt.status === 'Completed').length === 0 && (
+              {doctorAppointments.filter(apt => apt.status === 'completed').length === 0 && (
                 <p className="text-center text-gray-500 py-4">No completed appointments yet</p>
               )}
             </div>

@@ -71,6 +71,11 @@ const buildQuery = (params = {}) => {
   return searchParams.toString();
 };
 
+const isBadRequestError = (err) => {
+  const message = String(err?.message || '');
+  return message.includes('API Error: 400') || message.toLowerCase().includes('validation failed');
+};
+
 const normalizeArrayResponse = (response, alias) => {
   const data = Array.isArray(response?.data)
     ? response.data
@@ -310,17 +315,32 @@ export const doctorsAPI = {
 export const appointmentsAPI = {
   // Get all appointments
   getAllAppointments: async (filters = {}) => {
+    const normalizedStatus = normalizeStatusForApi(filters.status);
+    const normalizedDoctorId = filters.doctorId || filters.doctor_id;
+    const normalizedPatientId = filters.patientId || filters.patient_id;
+
     const query = buildQuery({
-      status: normalizeStatusForApi(filters.status),
-      doctorId: filters.doctorId || filters.doctor_id,
-      patientId: filters.patientId || filters.patient_id,
+      status: normalizedStatus,
+      doctorId: isValidUUID(String(normalizedDoctorId || '').trim()) ? normalizedDoctorId : undefined,
+      patientId: isValidUUID(String(normalizedPatientId || '').trim()) ? normalizedPatientId : undefined,
       date: filters.date,
       page: filters.page,
       limit: filters.limit,
     });
 
     const url = query ? `/appointments?${query}` : '/appointments';
-    const res = await apiRequest(url, { method: 'GET' });
+    let res;
+
+    try {
+      res = await apiRequest(url, { method: 'GET' });
+    } catch (err) {
+      // Fallback: backend already applies role-based filtering; retry without optional filters if query shape is rejected.
+      if (!isBadRequestError(err)) {
+        throw err;
+      }
+
+      res = await apiRequest('/appointments', { method: 'GET' });
+    }
 
     return {
       ...normalizeArrayResponse(res, 'appointments'),

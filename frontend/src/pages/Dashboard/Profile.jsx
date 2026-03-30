@@ -25,79 +25,98 @@ export default function Profile() {
   });
   const [savingConsult, setSavingConsult] = useState(false);
 
-  useEffect(() => {
-    const loadProfileData = async () => {
-      try {
-        setLoading(true);
-        setError("");
+  const getCurrentUserSafe = () => {
+    try {
+      const raw = localStorage.getItem("user");
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  };
 
-        const storedUser = localStorage.getItem("user");
-        if (!storedUser) throw new Error("User profile not found. Please log in again.");
+  const getDisplayName = (profile = {}) => {
+    const fullName = [profile.firstName, profile.lastName].filter(Boolean).join(" ").trim();
+    if (fullName) return fullName;
+    return profile.name || profile.email || "User";
+  };
 
-        const currentUser = JSON.parse(storedUser);
-        setUserRole(currentUser.role || "patient");
-
-        // Fetch user details from API
-        const userResponse = await authAPI.getUserById(currentUser.id);
-        const userData = userResponse.user || currentUser;
-        
-        if (!userData) throw new Error("User profile not found. Please try again.");
-
-        // Fetch user's appointments (API now returns { data: [...] })
-        const appointmentsResponse = await appointmentsAPI.getAllAppointments({
-          patientId: currentUser.id
-        });
-        const userAppointments = appointmentsResponse.data || [];
-
-        setUser(userData);
-        setHistory(userAppointments);
-        setEditPersonal({ 
-          dob: userData.dateOfBirth || userData.dob || "", 
-          age: userData.age || "" 
-        });
-        setEditContact({ 
-          phone: userData.phone || "", 
-          email: userData.email || "", 
-          location: userData.city || userData.location || "" 
-        });
-        setLoading(false);
-      } catch (err) {
-        setError(formatErrorMessage(err));
-        setLoading(false);
-      }
+  const normalizeUser = (profile = {}, fallback = {}) => {
+    const merged = { ...fallback, ...profile };
+    return {
+      ...merged,
+      name: getDisplayName(merged),
+      location: merged.location || merged.city || "Not specified",
+      dob: merged.dateOfBirth || merged.date_of_birth || merged.dob || "Not specified",
+      age: merged.age || "Not specified",
+      specialty: merged.specialization || merged.specialty || merged.role || "Patient",
     };
+  };
+
+  const normalizeHistory = (appointments = []) => {
+    return (appointments || []).map((apt) => {
+      const appointmentDate = apt.appointmentDate || apt.appointment_date || apt.date || null;
+      const parsedDate = appointmentDate ? new Date(`${appointmentDate}T00:00:00`) : null;
+
+      return {
+        ...apt,
+        dateObj: parsedDate && !Number.isNaN(parsedDate.getTime()) ? parsedDate : null,
+        time: apt.appointmentTime || apt.appointment_time || apt.time || "-",
+        status: apt.status || "scheduled",
+        specialty: apt.specialty || apt.type || "General",
+        doctorName: apt.doctorName || "Doctor",
+      };
+    });
+  };
+
+  const loadProfileData = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const currentUser = getCurrentUserSafe();
+      if (!currentUser?.id) throw new Error("User profile not found. Please log in again.");
+
+      setUserRole(currentUser.role || "patient");
+
+      // Prefer fresh profile from backend; fallback to stored user payload.
+      let userData = currentUser;
+      try {
+        const userResponse = await authAPI.getUserById(currentUser.id);
+        userData = userResponse?.user || currentUser;
+      } catch {
+        userData = currentUser;
+      }
+
+      // Backend already applies role filtering for appointments.
+      const appointmentsResponse = await appointmentsAPI.getAllAppointments();
+      const userAppointments = normalizeHistory(appointmentsResponse?.data || []);
+
+      const normalizedUser = normalizeUser(userData, currentUser);
+
+      setUser(normalizedUser);
+      setHistory(userAppointments);
+      setEditPersonal({
+        dob: normalizedUser.dob && normalizedUser.dob !== "Not specified" ? normalizedUser.dob : "",
+        age: normalizedUser.age && normalizedUser.age !== "Not specified" ? normalizedUser.age : "",
+      });
+      setEditContact({
+        phone: normalizedUser.phone || "",
+        email: normalizedUser.email || "",
+        location: normalizedUser.location && normalizedUser.location !== "Not specified" ? normalizedUser.location : "",
+      });
+    } catch (err) {
+      setError(formatErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     loadProfileData();
   }, []);
 
   const handleRetryLoadData = async () => {
-    try {
-      setLoading(true);
-      setError("");
-
-      const storedUser = localStorage.getItem("user");
-      if (!storedUser) throw new Error("User profile not found. Please log in again.");
-
-      const currentUser = JSON.parse(storedUser);
-      
-      // Fetch user details from API
-      const userResponse = await authAPI.getUserById(currentUser.id);
-      const userData = userResponse.user || currentUser;
-      
-      if (!userData) throw new Error("User profile not found. Please try again.");
-
-      // Fetch user's appointments (API now returns { data: [...] })
-      const appointmentsResponse = await appointmentsAPI.getAllAppointments({
-        patientId: currentUser.id
-      });
-      const userAppointments = appointmentsResponse.data || [];
-
-      setUser(userData);
-      setHistory(userAppointments);
-      setLoading(false);
-    } catch (err) {
-      setError(formatErrorMessage(err));
-      setLoading(false);
-    }
+    await loadProfileData();
   };
 
   // Save personal info (Date of birth, age) - with API call
@@ -324,6 +343,12 @@ function PermissionsTab() {
 }
 
 function HistoryTab({ history }) {
+  const toTitleCase = (value = '') => {
+    const raw = String(value || '').trim();
+    if (!raw) return 'Scheduled';
+    return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -333,9 +358,13 @@ function HistoryTab({ history }) {
       {history.length > 0 ? (
         <div className="space-y-3">
           {history.map(apt => {
-            const dateObj = new Date(apt.dateObj);
-            const day = dateObj.getDate();
-            const month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][dateObj.getMonth()];
+            const dateObj = apt.dateObj ? new Date(apt.dateObj) : null;
+            const validDate = dateObj && !Number.isNaN(dateObj.getTime());
+            const day = validDate ? dateObj.getDate() : '--';
+            const month = validDate
+              ? ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][dateObj.getMonth()]
+              : 'N/A';
+
             return (
               <div key={apt.id} className="flex items-center justify-between bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg">
                 <div className="flex items-center gap-6 flex-1">
@@ -345,7 +374,7 @@ function HistoryTab({ history }) {
                     <p className="text-sm text-gray-500 mb-2">{apt.specialty}</p>
                     <div className="flex items-center gap-4 flex-wrap">
                       <span className="flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-full text-blue-700 text-sm font-medium"><Clock className="w-4 h-4" />{apt.time}</span>
-                      <span className="flex items-center gap-2 bg-green-50 px-3 py-1.5 rounded-full text-green-700 text-sm font-medium">{apt.status}</span>
+                      <span className="flex items-center gap-2 bg-green-50 px-3 py-1.5 rounded-full text-green-700 text-sm font-medium">{toTitleCase(apt.status)}</span>
                     </div>
                   </div>
                 </div>
