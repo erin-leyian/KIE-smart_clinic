@@ -21,6 +21,16 @@ It includes:
 - Notifications and system settings management
 - Admin-managed hospitals, insurance, and condition settings
 
+## Architecture
+
+### 1. System Architecture (Frontend, API, Data, External)
+
+![KIE Smart Clinic layered system architecture](docs/system-architecture.png)
+
+### 2. Request Flow Architecture
+
+![KIE Smart Clinic request and response flow architecture](docs/request-flow.png)
+
 ## Repository Structure
 
 ```text
