@@ -10,11 +10,28 @@ export default function NotificationPanel() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [toastNotification, setToastNotification] = useState(null);
 
+  const isUuid = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ''));
+
+  const getCurrentUser = () => {
+    try {
+      const raw = localStorage.getItem('user');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  };
+
   const normalizeNotification = (notif = {}) => ({
     ...notif,
-    type: String(notif.type || '').toLowerCase(),
-    read: typeof notif.read === 'boolean' ? notif.read : Boolean(notif.isRead),
-    timestamp: notif.timestamp || notif.createdAt || new Date().toISOString(),
+    id: String(notif.id || `${notif.title || 'notification'}|${notif.message || ''}|${notif.timestamp || notif.createdAt || notif.created_at || ''}`),
+    userId: notif.userId || notif.user_id || notif.recipientId || null,
+    recipientId: notif.recipientId || notif.userId || notif.user_id || null,
+    recipientRole: notif.recipientRole || null,
+    type: String(notif.type || 'appointment').toLowerCase(),
+    read: typeof notif.read === 'boolean'
+      ? notif.read
+      : (typeof notif.isRead === 'boolean' ? notif.isRead : Boolean(notif.is_read)),
+    timestamp: notif.timestamp || notif.createdAt || notif.created_at || new Date().toISOString(),
   });
 
   const hydrateNotifications = (list = []) => {
@@ -41,7 +58,7 @@ export default function NotificationPanel() {
       mergedMap.set(key, {
         ...existing,
         ...normalized,
-        read: Boolean(existing.read && normalized.read),
+        read: Boolean(existing.read || normalized.read),
       });
     });
 
@@ -76,8 +93,9 @@ export default function NotificationPanel() {
 
   const loadNotifications = async () => {
     const localNotifications = getNotifications();
+    const currentUser = getCurrentUser();
+    const currentRole = localStorage.getItem('userRole') || currentUser?.role || 'patient';
 
-    const currentUser = localStorage.getItem('user');
     if (!currentUser) {
       hydrateNotifications(localNotifications);
       return;
@@ -88,7 +106,12 @@ export default function NotificationPanel() {
       const apiNotifications = response.data || [];
       const merged = mergeNotifications(apiNotifications, localNotifications);
       const normalized = hydrateNotifications(merged);
-      localStorage.setItem('notifications', JSON.stringify(normalized));
+      const persisted = normalized.map((item) => ({
+        ...item,
+        recipientId: item.recipientId || item.userId || currentUser.id,
+        recipientRole: item.recipientRole || currentRole,
+      }));
+      localStorage.setItem('notifications', JSON.stringify(persisted));
     } catch (err) {
       console.warn('Failed to fetch notifications from API, using local notifications:', err);
       hydrateNotifications(localNotifications);
@@ -96,10 +119,12 @@ export default function NotificationPanel() {
   };
 
   const markAsRead = async (id) => {
-    try {
-      await notificationsAPI.markAsRead(id);
-    } catch {
-      // Keep local fallback behavior when backend update fails
+    if (isUuid(id)) {
+      try {
+        await notificationsAPI.markAsRead(id);
+      } catch {
+        // Keep local fallback behavior when backend update fails
+      }
     }
 
     const updated = notifications.map(n =>

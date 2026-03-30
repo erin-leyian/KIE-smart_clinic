@@ -207,11 +207,17 @@ const getUserNotifications = () => {
   
   // Filter notifications for current user
   return notifications.filter(notif => {
+    const notifUserId = notif.recipientId || notif.userId || notif.user_id || null;
+    const notifRole = notif.recipientRole || null;
+
     // Admin sees all notifications
     if (userRole === 'admin') return true;
-    
-    // User sees notifications intended for their role and their specific user ID
-    return notif.recipientRole === userRole && notif.recipientId === currentUser.id;
+
+    // Backend notifications are user-targeted by userId/recipientId.
+    if (notifUserId && notifUserId === currentUser.id) return true;
+
+    // Legacy local notifications are targeted by role + recipientId.
+    return notifRole === userRole && notif.recipientId === currentUser.id;
   });
 };
 

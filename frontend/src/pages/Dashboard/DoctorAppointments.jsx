@@ -28,41 +28,140 @@ export default function DoctorAppointments() {
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'calendar'
   const [currentDate, setCurrentDate] = useState(new Date());
 
+  const toUiStatus = (status) => {
+    const normalized = String(status || '').toLowerCase();
+    if (normalized === 'scheduled') return 'Confirmed';
+    if (normalized === 'completed') return 'Completed';
+    if (normalized === 'cancelled') return 'Cancelled';
+    if (normalized === 'no-show') return 'No-Show';
+    if (normalized === 'pending') return 'Pending';
+    return status || 'Pending';
+  };
+
+  const toApiStatus = (status) => {
+    const normalized = String(status || '').toLowerCase();
+    if (['confirmed', 'scheduled', 'pending'].includes(normalized)) return 'scheduled';
+    if (normalized === 'completed') return 'completed';
+    if (normalized === 'cancelled') return 'cancelled';
+    if (normalized === 'no-show') return 'no-show';
+    return 'scheduled';
+  };
+
+  const normalizeDateInput = (value) => {
+    if (!value) return '';
+    const trimmed = String(value).trim();
+    const exactDate = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (exactDate) return trimmed;
+
+    const parsed = new Date(trimmed);
+    if (Number.isNaN(parsed.getTime())) return '';
+
+    const year = parsed.getFullYear();
+    const month = String(parsed.getMonth() + 1).padStart(2, '0');
+    const day = String(parsed.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const normalizeTimeInput = (value) => {
+    if (!value) return '';
+    const trimmed = String(value).trim();
+
+    const strict = trimmed.match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+    if (strict) return `${strict[1]}:${strict[2]}`;
+
+    const loose = trimmed.match(/([01]?\d|2[0-3]):([0-5]\d)\s*(AM|PM)?/i);
+    if (!loose) return '';
+
+    let hours = Number(loose[1]);
+    const minutes = loose[2];
+    const meridiem = (loose[3] || '').toUpperCase();
+
+    if (meridiem === 'PM' && hours < 12) hours += 12;
+    if (meridiem === 'AM' && hours === 12) hours = 0;
+
+    return `${String(hours).padStart(2, '0')}:${minutes}`;
+  };
+
+  const isFutureAppointmentDate = (dateValue) => {
+    if (!dateValue) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const target = new Date(`${dateValue}T00:00:00`);
+    if (Number.isNaN(target.getTime())) return false;
+
+    return target > today;
+  };
+
+  const normalizeAppointment = (apt = {}) => {
+    const appointmentDate = apt.appointmentDate || apt.appointment_date || apt.date || '';
+    const appointmentTime = apt.appointmentTime || apt.appointment_time || apt.time || '';
+    const parsedDate = appointmentDate ? new Date(`${appointmentDate}T00:00:00`) : null;
+
+    return {
+      ...apt,
+      doctorId: apt.doctorId || apt.doctor_id,
+      patientId: apt.patientId || apt.patient_id,
+      date: appointmentDate,
+      time: appointmentTime,
+      dateObj: parsedDate,
+      specialty: apt.specialty || apt.type || 'General',
+      type: apt.type || 'Consultation',
+      fee: apt.fee || apt.consultationFee || 'N/A',
+      hospital: apt.hospital || '',
+      status: toUiStatus(apt.status),
+      apiStatus: apt.status,
+    };
+  };
+
+  const getStoredUser = () => {
+    try {
+      const raw = localStorage.getItem('user');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const loadAppointments = async (statusFilter = filterStatus) => {
+    setLoading(true);
+    setError('');
+
+    const user = getStoredUser();
+    if (user) {
+      setCurrentUser(user);
+      setUserRole(user.role || 'doctor');
+    }
+
+    const response = await appointmentsAPI.getAllAppointments({
+      doctorId: user?.id,
+      status: statusFilter !== 'All' && !['History', 'Upcoming'].includes(statusFilter)
+        ? toApiStatus(statusFilter)
+        : undefined,
+    });
+
+    const normalizedAppointments = (response.data || []).map(normalizeAppointment);
+    setAppointments(normalizedAppointments);
+
+    const history = {};
+    normalizedAppointments
+      .filter((apt) => toApiStatus(apt.status) === 'completed')
+      .forEach((apt) => {
+        if (!history[apt.patientId]) {
+          history[apt.patientId] = [];
+        }
+        history[apt.patientId].push(apt);
+      });
+
+    setTreatmentHistory(history);
+    setLoading(false);
+  };
+
   // Load appointments data with error handling
   useEffect(() => {
-    const loadAppointments = async () => {
+    const runLoad = async () => {
       try {
-        setLoading(true);
-        setError('');
-
-        // Get current user from localStorage
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-          const user = JSON.parse(storedUser);
-          setCurrentUser(user);
-          setUserRole(user.role || 'doctor');
-        }
-
-        // Fetch appointments from real API for this doctor
-        const response = await appointmentsAPI.getAllAppointments({
-          doctorId: currentUser?.id,
-          status: filterStatus !== 'All' ? filterStatus : undefined
-        });
-
-        setAppointments(response.data || []);
-        
-        // Group treatment history by patient
-        const history = {};
-        (response.data || [])
-          .filter(apt => apt.status === 'completed')
-          .forEach(apt => {
-            if (!history[apt.patientId]) {
-              history[apt.patientId] = [];
-            }
-            history[apt.patientId].push(apt);
-          });
-        setTreatmentHistory(history);
-        setLoading(false);
+        await loadAppointments(filterStatus);
       } catch (err) {
         const errorMessage = formatErrorMessage(err);
         setError(errorMessage);
@@ -70,24 +169,13 @@ export default function DoctorAppointments() {
       }
     };
 
-    if (currentUser?.id) {
-      loadAppointments();
-    }
-  }, [currentUser?.id, filterStatus]);
+    runLoad();
+  }, [filterStatus]);
 
   // Retry loading appointments
   const handleRetryLoadData = async () => {
     try {
-      setLoading(true);
-      setError('');
-
-      const response = await appointmentsAPI.getAllAppointments({
-        doctorId: currentUser?.id,
-        status: filterStatus !== 'All' ? filterStatus : undefined
-      });
-
-      setAppointments(response.data || []);
-      setLoading(false);
+      await loadAppointments(filterStatus);
     } catch (err) {
       const errorMessage = formatErrorMessage(err);
       setError(errorMessage);
@@ -99,21 +187,21 @@ export default function DoctorAppointments() {
   const filteredAppointments = appointments.filter(apt => {
     // If doctor, show only their appointments
     if (userRole === 'doctor' && currentUser) {
-      const isDoctorAppointment = apt.doctorName === currentUser.name;
+      const isDoctorAppointment = apt.doctorId === currentUser.id;
       if (!isDoctorAppointment) return false;
     }
 
     // Apply status filter
     if (filterStatus === 'All') return true;
-    if (filterStatus === 'History') return apt.status === 'Completed';
-    if (filterStatus === 'Upcoming') return apt.status !== 'Completed' && apt.status !== 'Cancelled';
+    if (filterStatus === 'History') return toApiStatus(apt.status) === 'completed';
+    if (filterStatus === 'Upcoming') return !['completed', 'cancelled'].includes(toApiStatus(apt.status));
     return apt.status === filterStatus;
   });
 
   // Sort appointments
   const sortedAppointments = [...filteredAppointments].sort((a, b) => {
     if (sortBy === 'date') {
-      return new Date(a.dateObj) - new Date(b.dateObj);
+      return new Date(a.dateObj || a.date) - new Date(b.dateObj || b.date);
     } else if (sortBy === 'patient') {
       return a.patientName.localeCompare(b.patientName);
     }
@@ -129,67 +217,126 @@ export default function DoctorAppointments() {
     return acc;
   }, {});
 
-  const openAppointmentDetails = (apt) => {
-    setSelectedAppointment(apt);
-    setNotes(apt.notes || '');
-    setIsEditingNotes(false);
-    setAppointmentModal(true);
-  };
-
-  const handleConfirmAppointment = () => {
-    if (selectedAppointment && selectedAppointment.status !== 'Confirmed') {
-      notifyAppointmentConfirmed(selectedAppointment);
-      const updated = appointments.map(apt =>
-        apt.id === selectedAppointment.id ? { ...apt, status: 'Confirmed' } : apt
-      );
-      setAppointments(updated);
-      setSelectedAppointment({ ...selectedAppointment, status: 'Confirmed' });
-    }
-  };
-
-  const handleCancelAppointment = () => {
-    if (selectedAppointment && selectedAppointment.status !== 'Cancelled') {
-      notifyAppointmentCancelled(selectedAppointment);
-      const updated = appointments.map(apt =>
-        apt.id === selectedAppointment.id ? { ...apt, status: 'Cancelled' } : apt
-      );
-      setAppointments(updated);
-      setAppointmentModal(false);
-    }
-  };
-
-  const handleRescheduleAppointment = () => {
-    if (selectedAppointment) {
-      const newDate = window.prompt('Enter new date (e.g., Tomorrow):');
-      const newTime = window.prompt('Enter new time (e.g., 10:00 - 10:30):');
-
-      if (newDate && newTime) {
-        notifyAppointmentRescheduled({
-          ...selectedAppointment,
-          newDate,
-          newTime,
-        });
-        const updated = appointments.map(apt =>
-          apt.id === selectedAppointment.id
-            ? { ...apt, date: newDate, time: newTime, status: 'Confirmed' }
-            : apt
-        );
-        setAppointments(updated);
-        setSelectedAppointment({ ...selectedAppointment, date: newDate, time: newTime, status: 'Confirmed' });
-      }
-    }
-  };
-
-  const handleSaveNotes = () => {
-    if (selectedAppointment) {
-      const updated = appointments.map(apt =>
-        apt.id === selectedAppointment.id
-          ? { ...apt, notes }
-          : apt
-      );
-      setAppointments(updated);
-      setSelectedAppointment({ ...selectedAppointment, notes });
+  const openAppointmentDetails = async (apt) => {
+    try {
+      const response = await appointmentsAPI.getAppointmentById(apt.id);
+      const fullAppointment = normalizeAppointment(response?.appointment || response?.data || apt);
+      setSelectedAppointment(fullAppointment);
+      setNotes(fullAppointment.notes || '');
       setIsEditingNotes(false);
+      setAppointmentModal(true);
+    } catch {
+      setSelectedAppointment(apt);
+      setNotes(apt.notes || '');
+      setIsEditingNotes(false);
+      setAppointmentModal(true);
+    }
+  };
+
+  const handleConfirmAppointment = async () => {
+    if (!selectedAppointment || ['Confirmed', 'Scheduled'].includes(selectedAppointment.status)) return;
+
+    try {
+      const response = await appointmentsAPI.updateAppointment(selectedAppointment.id, {
+        status: 'scheduled',
+      });
+
+      const updated = normalizeAppointment(response?.appointment || response?.data || { ...selectedAppointment, status: 'scheduled' });
+      notifyAppointmentConfirmed(updated, 'doctor');
+      await loadAppointments(filterStatus);
+      setSelectedAppointment(updated);
+    } catch (err) {
+      alert(`Failed to confirm appointment: ${formatErrorMessage(err)}`);
+    }
+  };
+
+  const handleCancelAppointment = async () => {
+    if (!selectedAppointment || selectedAppointment.status === 'Cancelled') return;
+
+    try {
+      const response = await appointmentsAPI.updateAppointment(selectedAppointment.id, {
+        status: 'cancelled',
+      });
+
+      const updated = normalizeAppointment(response?.appointment || response?.data || { ...selectedAppointment, status: 'cancelled' });
+      notifyAppointmentCancelled(updated, 'doctor');
+      await loadAppointments(filterStatus);
+      setAppointmentModal(false);
+      setSelectedAppointment(updated);
+    } catch (err) {
+      alert(`Failed to cancel appointment: ${formatErrorMessage(err)}`);
+    }
+  };
+
+  const handleRescheduleAppointment = async () => {
+    if (!selectedAppointment) return;
+
+    const rawDate = window.prompt('Enter new date (YYYY-MM-DD):', selectedAppointment.date || '');
+    const rawTime = window.prompt('Enter new time (HH:MM):', selectedAppointment.time || '');
+
+    if (!rawDate || !rawTime) return;
+
+    const newDate = normalizeDateInput(rawDate);
+    const newTime = normalizeTimeInput(rawTime);
+
+    if (!newDate || !/^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
+      alert('Please enter a valid date in YYYY-MM-DD format.');
+      return;
+    }
+
+    if (!isFutureAppointmentDate(newDate)) {
+      alert('Please choose a future appointment date.');
+      return;
+    }
+
+    if (!newTime || !/^([01]\d|2[0-3]):([0-5]\d)$/.test(newTime)) {
+      alert('Please enter a valid time in HH:MM format (24-hour).');
+      return;
+    }
+
+    try {
+      const safeReason = String(selectedAppointment.reason || '').trim();
+      const response = await appointmentsAPI.updateAppointment(selectedAppointment.id, {
+        appointmentDate: newDate,
+        appointmentTime: newTime,
+        status: 'scheduled',
+        reason: safeReason.length >= 5 ? safeReason : 'Appointment rescheduled by doctor',
+      });
+
+      const updated = normalizeAppointment(response?.appointment || response?.data || {
+        ...selectedAppointment,
+        appointmentDate: newDate,
+        appointmentTime: newTime,
+        status: 'scheduled',
+      });
+
+      notifyAppointmentRescheduled({
+        ...updated,
+        newDate,
+        newTime,
+      }, 'doctor');
+
+      await loadAppointments(filterStatus);
+      setSelectedAppointment(updated);
+    } catch (err) {
+      alert(`Failed to reschedule appointment: ${formatErrorMessage(err)}`);
+    }
+  };
+
+  const handleSaveNotes = async () => {
+    if (!selectedAppointment) return;
+
+    try {
+      const response = await appointmentsAPI.updateAppointment(selectedAppointment.id, {
+        notes,
+      });
+
+      const updated = normalizeAppointment(response?.appointment || response?.data || { ...selectedAppointment, notes });
+      await loadAppointments(filterStatus);
+      setSelectedAppointment(updated);
+      setIsEditingNotes(false);
+    } catch (err) {
+      alert(`Failed to save notes: ${formatErrorMessage(err)}`);
     }
   };
 
@@ -450,7 +597,11 @@ export default function DoctorAppointments() {
                     }
 
                     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                    const dayAppointments = sortedAppointments.filter(apt => apt.dateObj === dateStr);
+                    const dayAppointments = sortedAppointments.filter((apt) => {
+                      if (!apt.dateObj || Number.isNaN(new Date(apt.dateObj).getTime())) return false;
+                      const aptDate = new Date(apt.dateObj).toISOString().split('T')[0];
+                      return aptDate === dateStr;
+                    });
                     const isToday = day === new Date().getDate() && 
                                    month === new Date().getMonth() && 
                                    year === new Date().getFullYear();
@@ -477,11 +628,11 @@ export default function DoctorAppointments() {
                                 setAppointmentModal(true);
                               }}
                               className={`w-full text-left px-1.5 py-1 rounded text-xs font-medium truncate text-white hover:shadow transition-shadow ${
-                                apt.status === 'Confirmed'
+                                toApiStatus(apt.status) === 'scheduled'
                                   ? 'bg-green-500'
-                                  : apt.status === 'Pending'
+                                  : toApiStatus(apt.status) === 'pending'
                                   ? 'bg-yellow-500'
-                                  : apt.status === 'Completed'
+                                  : toApiStatus(apt.status) === 'completed'
                                   ? 'bg-blue-500'
                                   : 'bg-gray-500'
                               }`}
