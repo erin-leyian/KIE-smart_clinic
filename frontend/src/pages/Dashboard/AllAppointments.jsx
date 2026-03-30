@@ -60,6 +60,9 @@ export default function AllAppointments() {
     const exactDate = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if (exactDate) return trimmed;
 
+    const isoDateTime = trimmed.match(/^(\d{4}-\d{2}-\d{2})T/);
+    if (isoDateTime) return isoDateTime[1];
+
     const parsed = new Date(trimmed);
     if (Number.isNaN(parsed.getTime())) return '';
 
@@ -300,12 +303,16 @@ export default function AllAppointments() {
       return;
     }
 
+    const safeReason = String(selectedAppointment.reason || '').trim();
+    const payload = {
+      appointmentDate: newDate,
+      appointmentTime: newTime,
+      status: 'scheduled',
+      reason: safeReason.length >= 5 ? safeReason : 'Appointment rescheduled by patient',
+    };
+
     try {
-      const response = await appointmentsAPI.updateAppointment(selectedAppointment.id, {
-        appointmentDate: newDate,
-        appointmentTime: newTime,
-        status: 'scheduled',
-      });
+      const response = await appointmentsAPI.updateAppointment(selectedAppointment.id, payload);
 
       const updated = normalizeAppointment(response?.appointment || response?.data || {
         ...selectedAppointment,
