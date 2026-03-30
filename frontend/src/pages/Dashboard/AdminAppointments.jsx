@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import Modal from '../../components/Modal';
-import mockData from '../../data/mockData.json';
+import { appointmentsAPI } from '../../services/api';
+import { createNotification } from '../../utils/notificationManager';
 import { Edit, Trash2, Plus, Search, AlertCircle, Check, Calendar } from 'lucide-react';
 
 export default function AdminAppointments() {
@@ -21,10 +22,10 @@ export default function AdminAppointments() {
     patientName: '',
     patientId: '',
     doctorName: '',
+    doctorId: '',
     specialty: '',
     hospital: '',
     date: '',
-    dateObj: '',
     time: '',
     type: 'In-Person',
     status: 'Pending',
@@ -49,8 +50,24 @@ export default function AdminAppointments() {
     }
 
     setUser(userData);
-    setAppointments(mockData.appointments || []);
-    setLoading(false);
+    
+    // Fetch appointments from real API
+    const fetchAppointments = async () => {
+      try {
+        setLoading(true);
+        const response = await appointmentsAPI.getAllAppointments({
+          status: filterStatus !== 'all' ? filterStatus : undefined
+        });
+        setAppointments(response.data || []);
+      } catch (err) {
+        console.error('Failed to fetch appointments:', err);
+        setSuccessMsg('Failed to load appointments');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchAppointments();
   }, [navigate]);
 
   const filteredAppointments = appointments.filter(apt => {
@@ -66,10 +83,10 @@ export default function AdminAppointments() {
       patientName: '',
       patientId: '',
       doctorName: '',
+      doctorId: '',
       specialty: '',
       hospital: '',
       date: '',
-      dateObj: '',
       time: '',
       type: 'In-Person',
       status: 'Pending',
@@ -85,10 +102,10 @@ export default function AdminAppointments() {
       patientName: apt.patientName,
       patientId: apt.patientId,
       doctorName: apt.doctorName,
+      doctorId: apt.doctorId || apt.doctor_id || '',
       specialty: apt.specialty || '',
       hospital: apt.hospital || '',
-      date: apt.date || '',
-      dateObj: apt.dateObj || '',
+      date: apt.date || apt.appointmentDate || apt.appointment_date || '',
       time: apt.time || '',
       type: apt.type || 'In-Person',
       status: apt.status || 'Pending',
@@ -98,40 +115,92 @@ export default function AdminAppointments() {
     setShowModal(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const patientId = String(formData.patientId || '').trim();
+    const doctorId = String(formData.doctorId || '').trim();
+
     if (!formData.patientName || !formData.doctorName) {
       alert('Patient Name and Doctor Name are required');
       return;
     }
 
-    if (editingAppointment) {
-      const updatedAppointments = appointments.map(apt =>
-        apt.id === editingAppointment.id
-          ? { ...apt, ...formData }
-          : apt
-      );
-      setAppointments(updatedAppointments);
-      setSuccessMsg(`Appointment updated successfully!`);
-    } else {
-      const newAppointment = {
-        id: Math.max(...appointments.map(apt => apt.id), 0) + 1,
-        doctorImage: 'https://randomuser.me/api/portraits/men/1.jpg',
-        ...formData,
-      };
-      setAppointments([...appointments, newAppointment]);
-      setSuccessMsg(`Appointment created successfully!`);
+    if (!uuidPattern.test(patientId)) {
+      alert('A valid Patient ID (UUID) is required');
+      return;
     }
 
-    setShowModal(false);
-    setTimeout(() => setSuccessMsg(''), 3000);
+    if (!uuidPattern.test(doctorId)) {
+      alert('A valid Doctor ID (UUID) is required');
+      return;
+    }
+
+    if (!formData.date || !formData.time) {
+      alert('Appointment date and time are required');
+      return;
+    }
+
+    try {
+      const appointmentData = {
+        patientId,
+        doctorId,
+        appointmentDate: formData.date,
+        appointmentTime: formData.time,
+        reason: (formData.notes || '').trim().length >= 5
+          ? formData.notes.trim()
+          : `Consultation (${formData.type || 'General'})`,
+        notes: formData.notes,
+        status: formData.status
+      };
+
+      if (editingAppointment) {
+        await appointmentsAPI.updateAppointment(editingAppointment.id, appointmentData);
+        const refreshed = await appointmentsAPI.getAllAppointments({
+          status: filterStatus !== 'all' ? filterStatus : undefined,
+        });
+        setAppointments(refreshed.data || []);
+        setSuccessMsg(`Appointment updated successfully!`);
+      } else {
+        const response = await appointmentsAPI.createAppointment(appointmentData);
+        const createdAppointment = response?.appointment || response?.data;
+        const refreshed = await appointmentsAPI.getAllAppointments({
+          status: filterStatus !== 'all' ? filterStatus : undefined,
+        });
+        setAppointments(refreshed.data || (createdAppointment ? [...appointments, createdAppointment] : appointments));
+
+        createNotification({
+          type: 'Confirmed',
+          title: 'Appointment Created',
+          message: `Appointment for ${formData.patientName} with ${formData.doctorName} on ${formData.date} at ${formData.time} was created successfully.`,
+          appointmentId: createdAppointment?.id,
+          relatedTo: appointmentData.patientId || null,
+          relatedName: formData.patientName || null,
+          meta: {
+            source: 'admin_appointments',
+          },
+        });
+
+        setSuccessMsg(`Appointment created successfully!`);
+      }
+
+      setShowModal(false);
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } catch (err) {
+      alert('Error saving appointment: ' + (err.message || 'Unknown error'));
+    }
   };
 
-  const handleDelete = (apt) => {
-    const updatedAppointments = appointments.filter(a => a.id !== apt.id);
-    setAppointments(updatedAppointments);
-    setDeleteConfirm(null);
-    setSuccessMsg(`Appointment deleted successfully!`);
-    setTimeout(() => setSuccessMsg(''), 3000);
+  const handleDelete = async (apt) => {
+    try {
+      await appointmentsAPI.deleteAppointment(apt.id);
+      const updatedAppointments = appointments.filter(a => a.id !== apt.id);
+      setAppointments(updatedAppointments);
+      setDeleteConfirm(null);
+      setSuccessMsg(`Appointment deleted successfully!`);
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } catch (err) {
+      alert('Error deleting appointment: ' + (err.message || 'Unknown error'));
+    }
   };
 
   const getStatusColor = (status) => {
@@ -312,11 +381,11 @@ export default function AdminAppointments() {
                   Patient ID
                 </label>
                 <input
-                  type="number"
+                  type="text"
                   value={formData.patientId}
                   onChange={(e) => setFormData({ ...formData, patientId: e.target.value })}
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  placeholder="Patient ID"
+                  placeholder="Patient UUID"
                 />
               </div>
 
@@ -330,6 +399,19 @@ export default function AdminAppointments() {
                   onChange={(e) => setFormData({ ...formData, doctorName: e.target.value })}
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                   placeholder="Doctor name"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Doctor ID
+                </label>
+                <input
+                  type="text"
+                  value={formData.doctorId}
+                  onChange={(e) => setFormData({ ...formData, doctorId: e.target.value })}
+                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  placeholder="Doctor UUID"
                 />
               </div>
 
@@ -356,9 +438,10 @@ export default function AdminAppointments() {
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                 >
                   <option value="">Select Hospital</option>
-                  {mockData.hospitals?.map(h => (
-                    <option key={h.id} value={h.name}>{h.name}</option>
-                  ))}
+                  <option value="Kigali Central Hospital">Kigali Central Hospital</option>
+                  <option value="King Faisal Hospital">King Faisal Hospital</option>
+                  <option value="Avi Clinic">Avi Clinic</option>
+                  <option value="Kigali Health Center">Kigali Health Center</option>
                 </select>
               </div>
 
@@ -368,8 +451,8 @@ export default function AdminAppointments() {
                 </label>
                 <input
                   type="date"
-                  value={formData.dateObj}
-                  onChange={(e) => setFormData({ ...formData, dateObj: e.target.value, date: e.target.value })}
+                  value={formData.date}
+                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
               </div>
@@ -379,11 +462,10 @@ export default function AdminAppointments() {
                   Time
                 </label>
                 <input
-                  type="text"
+                  type="time"
                   value={formData.time}
                   onChange={(e) => setFormData({ ...formData, time: e.target.value })}
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  placeholder="e.g., 09:00 - 09:30"
                 />
               </div>
 

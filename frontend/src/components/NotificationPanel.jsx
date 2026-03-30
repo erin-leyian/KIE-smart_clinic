@@ -1,36 +1,116 @@
 import React, { useState, useEffect } from 'react';
 import { Bell, X, CheckCircle, AlertCircle, Clock, MapPin, Link as LinkIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { notificationsAPI } from '../services/api';
+import { getNotifications } from '../utils/notificationManager';
 
 export default function NotificationPanel() {
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [toastNotification, setToastNotification] = useState(null);
+
+  const normalizeNotification = (notif = {}) => ({
+    ...notif,
+    type: String(notif.type || '').toLowerCase(),
+    read: typeof notif.read === 'boolean' ? notif.read : Boolean(notif.isRead),
+    timestamp: notif.timestamp || notif.createdAt || new Date().toISOString(),
+  });
+
+  const hydrateNotifications = (list = []) => {
+    const normalized = (list || []).map(normalizeNotification);
+    setNotifications(normalized);
+    const unread = normalized.filter(n => !n.read).length;
+    setUnreadCount(unread);
+    return normalized;
+  };
+
+  const mergeNotifications = (apiList = [], localList = []) => {
+    const mergedMap = new Map();
+
+    [...apiList, ...localList].forEach((item) => {
+      const normalized = normalizeNotification(item);
+      const fallbackKey = `${normalized.title || ''}|${normalized.message || ''}|${normalized.timestamp || ''}`;
+      const key = String(normalized.id || fallbackKey);
+      if (!mergedMap.has(key)) {
+        mergedMap.set(key, normalized);
+        return;
+      }
+
+      const existing = mergedMap.get(key);
+      mergedMap.set(key, {
+        ...existing,
+        ...normalized,
+        read: Boolean(existing.read && normalized.read),
+      });
+    });
+
+    return Array.from(mergedMap.values()).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  };
 
   useEffect(() => {
     loadNotifications();
+
+    const handleNotificationAdded = (event) => {
+      const detail = normalizeNotification(event?.detail || {});
+      if (detail?.title) {
+        setToastNotification(detail);
+        setTimeout(() => setToastNotification(null), 3500);
+      }
+      loadNotifications();
+    };
+
+    const handleNotificationUpdated = () => loadNotifications();
+    const handleNotificationsCleared = () => loadNotifications();
+
+    window.addEventListener('notificationAdded', handleNotificationAdded);
+    window.addEventListener('notificationUpdated', handleNotificationUpdated);
+    window.addEventListener('notificationsCleared', handleNotificationsCleared);
+
+    return () => {
+      window.removeEventListener('notificationAdded', handleNotificationAdded);
+      window.removeEventListener('notificationUpdated', handleNotificationUpdated);
+      window.removeEventListener('notificationsCleared', handleNotificationsCleared);
+    };
   }, []);
 
-  const loadNotifications = () => {
-    // Get notifications from localStorage
-    const storedNotifications = localStorage.getItem('notifications');
-    if (storedNotifications) {
-      const parsed = JSON.parse(storedNotifications);
-      setNotifications(parsed);
-      const unread = parsed.filter(n => !n.read).length;
-      setUnreadCount(unread);
+  const loadNotifications = async () => {
+    const localNotifications = getNotifications();
+
+    const currentUser = localStorage.getItem('user');
+    if (!currentUser) {
+      hydrateNotifications(localNotifications);
+      return;
+    }
+
+    try {
+      const response = await notificationsAPI.getAllNotifications();
+      const apiNotifications = response.data || [];
+      const merged = mergeNotifications(apiNotifications, localNotifications);
+      const normalized = hydrateNotifications(merged);
+      localStorage.setItem('notifications', JSON.stringify(normalized));
+    } catch (err) {
+      console.warn('Failed to fetch notifications from API, using local notifications:', err);
+      hydrateNotifications(localNotifications);
     }
   };
 
-  const markAsRead = (id) => {
+  const markAsRead = async (id) => {
+    try {
+      await notificationsAPI.markAsRead(id);
+    } catch {
+      // Keep local fallback behavior when backend update fails
+    }
+
     const updated = notifications.map(n =>
       n.id === id ? { ...n, read: true } : n
     );
     setNotifications(updated);
     localStorage.setItem('notifications', JSON.stringify(updated));
-    
+
     const unread = updated.filter(n => !n.read).length;
     setUnreadCount(unread);
+    loadNotifications();
   };
 
   const removeNotification = (id) => {
@@ -42,11 +122,18 @@ export default function NotificationPanel() {
     setUnreadCount(unread);
   };
 
-  const markAllAsRead = () => {
+  const markAllAsRead = async () => {
+    try {
+      await notificationsAPI.markAllAsRead();
+    } catch {
+      // Keep local fallback behavior when backend update fails
+    }
+
     const updated = notifications.map(n => ({ ...n, read: true }));
     setNotifications(updated);
     localStorage.setItem('notifications', JSON.stringify(updated));
     setUnreadCount(0);
+    loadNotifications();
   };
 
   const getNotificationIcon = (type) => {
@@ -82,6 +169,13 @@ export default function NotificationPanel() {
 
   return (
     <div className="relative">
+      {toastNotification && (
+        <div className="fixed top-6 right-6 z-[100] w-80 bg-white border border-teal-200 shadow-xl rounded-lg p-4 animate-fade-in">
+          <p className="text-sm font-semibold text-gray-900">{toastNotification.title}</p>
+          <p className="text-xs text-gray-600 mt-1">{toastNotification.message}</p>
+        </div>
+      )}
+
       {/* Notification Bell Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}

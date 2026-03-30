@@ -1,6 +1,42 @@
 require('dotenv').config();
+const https = require('https');
 const AfricasTalking = require('africastalking');
-const pool = require('../db');
+const { generateUUID, sanitizeInput, isValidDate, isFutureDate, isValidTime } = require('../utils/validation');
+
+// Helper function for Supabase REST API calls
+async function supabaseQuery(method, endpoint, body = null) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(`${process.env.SUPABASE_URL}/rest/v1${endpoint}`);
+    const headers = {
+      'Content-Type': 'application/json',
+      'apikey': process.env.SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+      'Prefer': 'return=representation',
+    };
+
+    const options = {
+      method,
+      headers,
+    };
+
+    const req = https.request(url, options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        try {
+          const parsed = data ? JSON.parse(data) : [];
+          resolve({ data: parsed, status: res.statusCode });
+        } catch (e) {
+          resolve({ data: null, status: res.statusCode });
+        }
+      });
+    });
+
+    req.on('error', reject);
+    if (body) req.write(JSON.stringify(body));
+    req.end();
+  });
+}
 
 const getSMS = () => {
   const AT = AfricasTalking({
@@ -48,17 +84,33 @@ const handleRegister = async (phone, args) => {
   const dobStr = dob.toISOString().split('T')[0];
 
   try {
-    const [existing] = await pool.query(
-      'SELECT * FROM Patient WHERE PhoneNumber = ?', [phone]
-    );
-    if (existing.length > 0) {
-      return `You are already registered as ${existing[0].FirstName} ${existing[0].LastName}. Send BOOK, QUEUE, or CANCEL.`;
+    // Check if user with this phone already exists
+    const { data: existing, status: checkStatus } = await supabaseQuery('GET', `/users?phone=eq.${encodeURIComponent(phone)}&role=eq.patient`);
+    
+    if (checkStatus === 200 && Array.isArray(existing) && existing.length > 0) {
+      return `You are already registered as ${existing[0].first_name} ${existing[0].last_name}. Send BOOK, QUEUE, or CANCEL.`;
     }
 
-    await pool.query(
-      'INSERT INTO Patient (FirstName, LastName, PhoneNumber, DateOfBirth, IsActive) VALUES (?, ?, ?, ?, 1)',
-      [firstName, lastName, phone, dobStr]
-    );
+    // Create new patient user
+    const userId = generateUUID();
+    const tempPassword = Math.random().toString(36).slice(-8);
+    
+    const { data: createdUsers, status: createStatus } = await supabaseQuery('POST', '/users', {
+      id: userId,
+      first_name: firstName,
+      last_name: lastName,
+      email: `${phone}@smsclinic.local`,
+      password: tempPassword,
+      phone: phone,
+      date_of_birth: dobStr,
+      role: 'patient',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+
+    if (createStatus !== 201 && createStatus !== 200) {
+      return 'Registration failed. Please try again.';
+    }
 
     const isPriority = age >= 65;
     if (isPriority) {
@@ -81,35 +133,60 @@ const handleBook = async (phone, args) => {
   const date = args[0];
   const time = args[1];
 
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) {
+  if (!isValidDate(date) || !isValidTime(time)) {
     return 'Invalid date/time format. Use: BOOK YYYY-MM-DD HH:MM\nExample: BOOK 2026-03-15 09:00';
   }
 
+  if (!isFutureDate(date)) {
+    return 'Appointment date must be in the future. Please select a future date.';
+  }
+
   try {
-    const [patients] = await pool.query(
-      'SELECT * FROM Patient WHERE PhoneNumber = ?', [phone]
-    );
-    if (patients.length === 0) {
+    const { data: patients, status: patientsStatus } = await supabaseQuery('GET', `/users?phone=eq.${encodeURIComponent(phone)}&role=eq.patient`);
+    
+    if (patientsStatus !== 200 || !Array.isArray(patients) || patients.length === 0) {
       return 'You are not registered. Send REGISTER Your Name Age first.\nExample: REGISTER John Doe 25';
     }
 
     const patient = patients[0];
-    const age = patient.DateOfBirth
-      ? Math.floor((new Date() - new Date(patient.DateOfBirth)) / (365.25 * 24 * 60 * 60 * 1000))
+    const age = patient.date_of_birth
+      ? Math.floor((new Date() - new Date(patient.date_of_birth)) / (365.25 * 24 * 60 * 60 * 1000))
       : 0;
     const isPriority = age >= 65;
-    const doctorId = 2;
 
-    await pool.query(
-      'INSERT INTO Appointment (PatientID, DoctorID, AppointmentDate, AppointmentTime, Status, Notes) VALUES (?, ?, ?, ?, ?, ?)',
-      [patient.PatientID, doctorId, date, `${time}:00`, 'Pending', 'Booked via SMS']
-    );
-
-    if (isPriority) {
-      return `Appointment booked for ${patient.FirstName} ${patient.LastName} on ${date} at ${time}.\nAs a priority patient, you will receive priority queue placement on the day.\n\nSend QUEUE to check your position or CANCEL to cancel.`;
+    // Get default doctor (first available doctor)
+    const { data: doctors, status: doctorsStatus } = await supabaseQuery('GET', `/users?role=eq.doctor&limit=1`);
+    
+    if (doctorsStatus !== 200 || !Array.isArray(doctors) || doctors.length === 0) {
+      return 'No doctors available at the moment. Please try again later.';
     }
 
-    return `Appointment booked for ${patient.FirstName} ${patient.LastName} on ${date} at ${time}.\n\nSend QUEUE to check your position or CANCEL to cancel.`;
+    const doctorId = doctors[0].id;
+
+    // Create appointment
+    const appointmentId = generateUUID();
+    const reason = 'SMS Booking';
+    const { data: appointments, status: apptStatus } = await supabaseQuery('POST', '/appointments', {
+      id: appointmentId,
+      doctor_id: doctorId,
+      patient_id: patient.id,
+      appointment_date: date,
+      appointment_time: time,
+      reason: reason,
+      status: 'scheduled',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+
+    if (apptStatus !== 201 && apptStatus !== 200) {
+      return 'Booking failed. Please try again.';
+    }
+
+    if (isPriority) {
+      return `Appointment booked for ${patient.first_name} ${patient.last_name} on ${date} at ${time}.\nAs a priority patient, you will receive priority queue placement on the day.\n\nSend QUEUE to check your position or CANCEL to cancel.`;
+    }
+
+    return `Appointment booked for ${patient.first_name} ${patient.last_name} on ${date} at ${time}.\n\nSend QUEUE to check your position or CANCEL to cancel.`;
   } catch (err) {
     console.error('BOOK error:', err.message);
     return 'Booking failed. Please try again.';
@@ -119,31 +196,27 @@ const handleBook = async (phone, args) => {
 // ── QUEUE ──────────────────────────────────────────────────────────────────────
 const handleQueue = async (phone) => {
   try {
-    const [patients] = await pool.query(
-      'SELECT * FROM Patient WHERE PhoneNumber = ?', [phone]
-    );
-    if (patients.length === 0) {
+    const { data: patients, status: patientsStatus } = await supabaseQuery('GET', `/users?phone=eq.${encodeURIComponent(phone)}&role=eq.patient`);
+    
+    if (patientsStatus !== 200 || !Array.isArray(patients) || patients.length === 0) {
       return 'You are not registered. Send REGISTER Your Name and Age first.';
     }
 
     const patient = patients[0];
-    const [queueEntries] = await pool.query(
-      'SELECT * FROM QueueEntry WHERE PatientID = ? AND Status = "Waiting" ORDER BY PositionInQueue ASC',
-      [patient.PatientID]
-    );
+    const { data: queueEntries, status: queueStatus } = await supabaseQuery('GET', `/queue_entries?patient_id=eq.${patient.id}&status=in.(waiting,in-progress)&order=position.asc`);
 
-    if (queueEntries.length === 0) {
-      return `${patient.FirstName} ${patient.LastName}, you are not currently in the queue. Visit the clinic to check in.`;
+    if (queueStatus !== 200 || !Array.isArray(queueEntries) || queueEntries.length === 0) {
+      return `${patient.first_name} ${patient.last_name}, you are not currently in the queue. Visit the clinic to check in.`;
     }
 
     const entry = queueEntries[0];
-    const patientsAhead = entry.PositionInQueue - 1;
+    const patientsAhead = entry.position - 1;
 
     if (patientsAhead === 0) {
-      return `${patient.FirstName} ${patient.LastName}, you are NEXT in the queue! Please proceed to the consultation room.`;
+      return `${patient.first_name} ${patient.last_name}, you are NEXT in the queue! Please proceed to the consultation room.`;
     }
 
-    return `${patient.FirstName} ${patient.LastName}, you are number ${entry.PositionInQueue} in the queue. ${patientsAhead} patient(s) ahead of you.`;
+    return `${patient.first_name} ${patient.last_name}, you are number ${entry.position} in the queue. ${patientsAhead} patient(s) ahead of you.`;
   } catch (err) {
     console.error('QUEUE error:', err.message);
     return 'Failed to get queue position. Please try again.';
@@ -153,31 +226,30 @@ const handleQueue = async (phone) => {
 // ── CANCEL ─────────────────────────────────────────────────────────────────────
 const handleCancel = async (phone) => {
   try {
-    const [patients] = await pool.query(
-      'SELECT * FROM Patient WHERE PhoneNumber = ?', [phone]
-    );
-    if (patients.length === 0) {
+    const { data: patients, status: patientsStatus } = await supabaseQuery('GET', `/users?phone=eq.${encodeURIComponent(phone)}&role=eq.patient`);
+    
+    if (patientsStatus !== 200 || !Array.isArray(patients) || patients.length === 0) {
       return 'You are not registered. Send REGISTER Your Name Age first.';
     }
 
     const patient = patients[0];
-    const [appointments] = await pool.query(
-      'SELECT * FROM Appointment WHERE PatientID = ? AND Status = ? ORDER BY AppointmentDate ASC, AppointmentTime ASC LIMIT 1',
-      [patient.PatientID, 'Pending']
-    );
+    const { data: appointments, status: apptStatus } = await supabaseQuery('GET', `/appointments?patient_id=eq.${patient.id}&status=eq.scheduled&order=appointment_date.asc,appointment_time.asc&limit=1`);
 
-    if (appointments.length === 0) {
-      return `${patient.FirstName} ${patient.LastName}, you have no upcoming appointments to cancel.`;
+    if (apptStatus !== 200 || !Array.isArray(appointments) || appointments.length === 0) {
+      return `${patient.first_name} ${patient.last_name}, you have no upcoming appointments to cancel.`;
     }
 
     const appt = appointments[0];
-   await pool.query(
-  'UPDATE Appointment SET Status = ? WHERE AppointmentID = ?',
-  ['Cancelled', appt.AppointmentID]
-);
+    const { status: updateStatus } = await supabaseQuery('PATCH', `/appointments?id=eq.${appt.id}`, {
+      status: 'cancelled',
+      updated_at: new Date().toISOString(),
+    });
 
-    const dateStr = new Date(appt.AppointmentDate).toISOString().split('T')[0];
-    return `${patient.FirstName} ${patient.LastName}, your appointment on ${dateStr} at ${appt.AppointmentTime} has been cancelled successfully.`;
+    if (updateStatus !== 200) {
+      return 'Cancellation failed. Please try again.';
+    }
+
+    return `${patient.first_name} ${patient.last_name}, your appointment on ${appt.appointment_date} at ${appt.appointment_time} has been cancelled successfully.`;
   } catch (err) {
     console.error('CANCEL error:', err.message);
     return 'Cancellation failed. Please try again.';

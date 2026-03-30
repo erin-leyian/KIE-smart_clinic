@@ -2,16 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { Clock, MapPin, Phone, Video, MessageSquare, CheckCircle, Calendar, ChevronDown, AlertCircle, RotateCcw, Edit2, Save, X, Trash2 } from 'lucide-react';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import Modal from '../../components/Modal';
-import mockData from '../../data/mockData.json';
+import { appointmentsAPI } from '../../services/api';
 import { getIconComponent, getSpecialtyBgColor } from '../../utils/medicalIcons';
 import { formatErrorMessage } from '../../utils/errorHandler';
 import { notifyAppointmentConfirmed, notifyAppointmentCancelled, notifyAppointmentRescheduled } from '../../utils/notificationManager';
 
 export default function AllAppointments() {
-  const [appointments, setAppointments] = useState(mockData.appointments || []);
+  const [appointments, setAppointments] = useState([]);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [appointmentModal, setAppointmentModal] = useState(false);
-  const [filterStatus, setFilterStatus] = useState('All');
+  const [filterStatus, setFilterStatus] = useState('ALL');
   const [sortBy, setSortBy] = useState('date');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -25,40 +25,137 @@ export default function AllAppointments() {
   const [deleteConfirmModal, setDeleteConfirmModal] = useState(false);
   const [appointmentToDelete, setAppointmentToDelete] = useState(null);
 
+  const toUiStatus = (status) => {
+    const statusMap = {
+      scheduled: 'Scheduled',
+      completed: 'Completed',
+      cancelled: 'Cancelled',
+      'no-show': 'No-Show',
+      Confirmed: 'Confirmed',
+      Pending: 'Pending',
+      Completed: 'Completed',
+      Cancelled: 'Cancelled',
+      Scheduled: 'Scheduled',
+    };
+
+    return statusMap[status] || status || 'Scheduled';
+  };
+
+  const toApiStatus = (status) => {
+    const statusMap = {
+      Confirmed: 'scheduled',
+      Pending: 'scheduled',
+      Scheduled: 'scheduled',
+      Completed: 'completed',
+      Cancelled: 'cancelled',
+      'No-Show': 'no-show',
+    };
+
+    return statusMap[status] || status?.toLowerCase() || 'scheduled';
+  };
+
+  const normalizeDateInput = (value) => {
+    if (!value) return '';
+    const trimmed = String(value).trim();
+    const exactDate = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (exactDate) return trimmed;
+
+    const parsed = new Date(trimmed);
+    if (Number.isNaN(parsed.getTime())) return '';
+
+    const year = parsed.getFullYear();
+    const month = String(parsed.getMonth() + 1).padStart(2, '0');
+    const day = String(parsed.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const normalizeTimeInput = (value) => {
+    if (!value) return '';
+    const trimmed = String(value).trim();
+
+    const strict = trimmed.match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+    if (strict) return `${strict[1]}:${strict[2]}`;
+
+    const loose = trimmed.match(/([01]?\d|2[0-3]):([0-5]\d)\s*(AM|PM)?/i);
+    if (!loose) return '';
+
+    let hours = Number(loose[1]);
+    const minutes = loose[2];
+    const meridiem = (loose[3] || '').toUpperCase();
+
+    if (meridiem === 'PM' && hours < 12) hours += 12;
+    if (meridiem === 'AM' && hours === 12) hours = 0;
+
+    return `${String(hours).padStart(2, '0')}:${minutes}`;
+  };
+
+  const isFutureAppointmentDate = (dateValue) => {
+    if (!dateValue) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const target = new Date(`${dateValue}T00:00:00`);
+    if (Number.isNaN(target.getTime())) return false;
+
+    return target > today;
+  };
+
+  const normalizeAppointment = (apt = {}) => {
+    const appointmentDate = apt.appointmentDate || apt.appointment_date || apt.date || '';
+    const appointmentTime = apt.appointmentTime || apt.appointment_time || apt.time || '';
+    const parsedDate = appointmentDate ? new Date(appointmentDate) : null;
+
+    return {
+      ...apt,
+      doctorId: apt.doctorId || apt.doctor_id,
+      patientId: apt.patientId || apt.patient_id,
+      date: appointmentDate,
+      time: appointmentTime,
+      dateObj: parsedDate,
+      specialty: apt.specialty || apt.type || 'General',
+      type: apt.type || 'Consultation',
+      fee: apt.fee || 'N/A',
+      hospital: apt.hospital || '',
+      status: toUiStatus(apt.status),
+      apiStatus: apt.status,
+    };
+  };
+
+  const loadAppointments = async (statusFilter = filterStatus) => {
+    setLoading(true);
+    setError('');
+
+    const storedUser = localStorage.getItem('user');
+    let user = null;
+    if (storedUser) {
+      user = JSON.parse(storedUser);
+      setCurrentUser(user);
+      setUserRole(user.role || 'patient');
+    }
+
+    const response = await appointmentsAPI.getAllAppointments({
+      status: statusFilter !== 'ALL' ? toApiStatus(statusFilter) : undefined,
+    });
+
+    const normalizedAppointments = (response.data || []).map(normalizeAppointment);
+    setAppointments(normalizedAppointments);
+    setLoading(false);
+  };
+
   // Load appointments data with error handling
   useEffect(() => {
-    const loadAppointments = async () => {
+    const runLoad = async () => {
       try {
-        setLoading(true);
-        setError('');
-        
-        // Get current user from localStorage
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-          const user = JSON.parse(storedUser);
-          setCurrentUser(user);
-          setUserRole(user.role || 'patient');
-        }
-        
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 600));
-        
-        // Validate data
-        if (!mockData.appointments || !Array.isArray(mockData.appointments) || mockData.appointments.length === 0) {
-          throw new Error('No appointments found. Please try again.');
-        }
-        
-        setAppointments(mockData.appointments);
-        setLoading(false);
+        await loadAppointments(filterStatus);
       } catch (err) {
         const errorMessage = formatErrorMessage(err);
         setError(errorMessage);
         setLoading(false);
       }
     };
-    
-    loadAppointments();
-  }, []);
+
+    runLoad();
+  }, [filterStatus]);
 
   // Create sample notifications on first load
   useEffect(() => {
@@ -77,19 +174,7 @@ export default function AllAppointments() {
   // Retry loading appointments
   const handleRetryLoadData = async () => {
     try {
-      setLoading(true);
-      setError('');
-      
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 600));
-      
-      // Validate data
-      if (!mockData.appointments || !Array.isArray(mockData.appointments) || mockData.appointments.length === 0) {
-        throw new Error('No appointments found. Please try again.');
-      }
-      
-      setAppointments(mockData.appointments);
-      setLoading(false);
+      await loadAppointments(filterStatus);
     } catch (err) {
       const errorMessage = formatErrorMessage(err);
       setError(errorMessage);
@@ -101,96 +186,162 @@ export default function AllAppointments() {
   const filteredAppointments = appointments.filter(apt => {
     // If patient, show only their appointments
     if (userRole === 'patient' && currentUser) {
-      const isPatientAppointment = apt.patientName === currentUser.name || apt.patientId === currentUser.id;
+      const isPatientAppointment = apt.patientId === currentUser.id;
       if (!isPatientAppointment) return false;
     }
     
     // If doctor, show only their appointments
     if (userRole === 'doctor' && currentUser) {
-      const isDoctorAppointment = apt.doctorName === currentUser.name;
+      const isDoctorAppointment = apt.doctorId === currentUser.id;
       if (!isDoctorAppointment) return false;
     }
     
     // Apply status filter
-    if (filterStatus === 'All') return true;
+    if (filterStatus === 'ALL') return true;
     return apt.status === filterStatus;
   });
 
   // Sort appointments
   const sortedAppointments = [...filteredAppointments].sort((a, b) => {
     if (sortBy === 'date') {
-      return new Date(a.date) - new Date(b.date);
+      return new Date(a.dateObj || a.date) - new Date(b.dateObj || b.date);
     } else if (sortBy === 'doctor') {
       return a.doctorName.localeCompare(b.doctorName);
     }
     return 0;
   });
 
-  const openAppointmentDetails = (apt) => {
-    setSelectedAppointment(apt);
-    setNotes(apt.notes || '');
-    setIsEditingNotes(false);
-    setAppointmentModal(true);
-  };
+  const openAppointmentDetails = async (apt) => {
+    const isUuid = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ''));
 
-  const handleConfirmAppointment = () => {
-    if (selectedAppointment && selectedAppointment.status !== 'Confirmed') {
-      notifyAppointmentConfirmed(selectedAppointment);
-      // Update appointment status
-      const updated = appointments.map(apt =>
-        apt.id === selectedAppointment.id ? { ...apt, status: 'Confirmed' } : apt
-      );
-      setAppointments(updated);
-      setSelectedAppointment({ ...selectedAppointment, status: 'Confirmed' });
+    if (!isUuid(apt?.id)) {
+      setSelectedAppointment(apt);
+      setNotes(apt?.notes || '');
+      setIsEditingNotes(false);
+      setAppointmentModal(true);
+      return;
+    }
+
+    try {
+      const response = await appointmentsAPI.getAppointmentById(apt.id);
+      const fullAppointment = normalizeAppointment(response?.appointment || response?.data || apt);
+      setSelectedAppointment(fullAppointment);
+      setNotes(fullAppointment.notes || '');
+      setIsEditingNotes(false);
+      setAppointmentModal(true);
+    } catch {
+      setSelectedAppointment(apt);
+      setNotes(apt.notes || '');
+      setIsEditingNotes(false);
+      setAppointmentModal(true);
     }
   };
 
-  const handleCancelAppointment = () => {
-    if (selectedAppointment && selectedAppointment.status !== 'Cancelled') {
-      notifyAppointmentCancelled(selectedAppointment);
-      // Update appointment status
-      const updated = appointments.map(apt =>
-        apt.id === selectedAppointment.id ? { ...apt, status: 'Cancelled' } : apt
-      );
-      setAppointments(updated);
+  const handleConfirmAppointment = async () => {
+    if (!selectedAppointment || ['Confirmed', 'Scheduled'].includes(selectedAppointment.status)) return;
+
+    try {
+      const response = await appointmentsAPI.updateAppointment(selectedAppointment.id, {
+        status: 'scheduled',
+      });
+
+      const updated = normalizeAppointment(response?.appointment || response?.data || { ...selectedAppointment, status: 'scheduled' });
+      notifyAppointmentConfirmed(updated);
+
+      await loadAppointments(filterStatus);
+      setSelectedAppointment(updated);
+    } catch (err) {
+      alert(`Failed to confirm appointment: ${formatErrorMessage(err)}`);
+    }
+  };
+
+  const handleCancelAppointment = async () => {
+    if (!selectedAppointment || selectedAppointment.status === 'Cancelled') return;
+
+    try {
+      const response = await appointmentsAPI.updateAppointment(selectedAppointment.id, {
+        status: 'cancelled',
+      });
+
+      const updated = normalizeAppointment(response?.appointment || response?.data || { ...selectedAppointment, status: 'cancelled' });
+      notifyAppointmentCancelled(updated);
+
+      await loadAppointments(filterStatus);
       setAppointmentModal(false);
+      setSelectedAppointment(updated);
+    } catch (err) {
+      alert(`Failed to cancel appointment: ${formatErrorMessage(err)}`);
     }
   };
 
-  const handleRescheduleAppointment = () => {
-    if (selectedAppointment) {
-      const newDate = window.prompt('Enter new date (e.g., Tomorrow):');
-      const newTime = window.prompt('Enter new time (e.g., 10:00 - 10:30):');
-      
-      if (newDate && newTime) {
-        notifyAppointmentRescheduled({
-          ...selectedAppointment,
-          newDate,
-          newTime,
-        });
-        // Update appointment
-        const updated = appointments.map(apt =>
-          apt.id === selectedAppointment.id 
-            ? { ...apt, date: newDate, time: newTime, status: 'Confirmed' } 
-            : apt
-        );
-        setAppointments(updated);
-        setSelectedAppointment({ ...selectedAppointment, date: newDate, time: newTime, status: 'Confirmed' });
-      }
+  const handleRescheduleAppointment = async () => {
+    if (!selectedAppointment) return;
+
+    const rawDate = window.prompt('Enter new date (YYYY-MM-DD):', selectedAppointment.date || '');
+    const rawTime = window.prompt('Enter new time (HH:MM):', selectedAppointment.time || '');
+
+    if (!rawDate || !rawTime) return;
+
+    const newDate = normalizeDateInput(rawDate);
+    const newTime = normalizeTimeInput(rawTime);
+
+    if (!newDate || !/^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
+      alert('Please enter a valid date in YYYY-MM-DD format.');
+      return;
+    }
+
+    if (!isFutureAppointmentDate(newDate)) {
+      alert('Please choose a future appointment date.');
+      return;
+    }
+
+    if (!newTime || !/^([01]\d|2[0-3]):([0-5]\d)$/.test(newTime)) {
+      alert('Please enter a valid time in HH:MM format (24-hour).');
+      return;
+    }
+
+    try {
+      const response = await appointmentsAPI.updateAppointment(selectedAppointment.id, {
+        appointmentDate: newDate,
+        appointmentTime: newTime,
+        status: 'scheduled',
+      });
+
+      const updated = normalizeAppointment(response?.appointment || response?.data || {
+        ...selectedAppointment,
+        appointmentDate: newDate,
+        appointmentTime: newTime,
+        status: 'scheduled',
+      });
+
+      notifyAppointmentRescheduled({
+        ...updated,
+        newDate,
+        newTime,
+      });
+
+      await loadAppointments(filterStatus);
+      setSelectedAppointment(updated);
+    } catch (err) {
+      alert(`Failed to reschedule appointment: ${formatErrorMessage(err)}`);
     }
   };
 
   // Save appointment notes (doctor only)
-  const handleSaveNotes = () => {
-    if (selectedAppointment) {
-      const updated = appointments.map(apt =>
-        apt.id === selectedAppointment.id 
-          ? { ...apt, notes } 
-          : apt
-      );
-      setAppointments(updated);
-      setSelectedAppointment({ ...selectedAppointment, notes });
+  const handleSaveNotes = async () => {
+    if (!selectedAppointment) return;
+
+    try {
+      const response = await appointmentsAPI.updateAppointment(selectedAppointment.id, {
+        notes,
+      });
+
+      const updated = normalizeAppointment(response?.appointment || response?.data || { ...selectedAppointment, notes });
+      await loadAppointments(filterStatus);
+      setSelectedAppointment(updated);
       setIsEditingNotes(false);
+    } catch (err) {
+      alert(`Failed to save notes: ${formatErrorMessage(err)}`);
     }
   };
 
@@ -201,16 +352,37 @@ export default function AllAppointments() {
     setEditModal(true);
   };
 
-  const handleSaveEdit = () => {
+  // UPDATE: Handle appointment update via API
+  const handleSaveEdit = async () => {
     if (!editFormData.patientName || !editFormData.doctorName || !editFormData.date) {
       alert('Please fill in required fields');
       return;
     }
-    const updated = appointments.map(apt => apt.id === editFormData.id ? editFormData : apt);
-    setAppointments(updated);
-    setEditModal(false);
-    setEditingAppointment(null);
-    alert('Appointment updated successfully!');
+
+    try {
+      // Call API to update appointment
+      const response = await appointmentsAPI.updateAppointment(editFormData.id, {
+        appointmentDate: editFormData.date,
+        appointmentTime: editFormData.time,
+        status: toApiStatus(editFormData.status),
+        notes: editFormData.notes,
+        type: editFormData.type,
+        reason: editFormData.reason,
+      });
+
+      const updated = normalizeAppointment(response?.appointment || response?.data || editFormData);
+      setAppointments((prev) => prev.map((apt) => apt.id === editFormData.id ? updated : apt));
+      
+      // Close modal and show success
+      setEditModal(false);
+      setEditingAppointment(null);
+      await loadAppointments(filterStatus);
+      alert('Appointment updated successfully!');
+    } catch (err) {
+      const errorMessage = formatErrorMessage(err);
+      console.error('Error updating appointment:', err);
+      alert(`Failed to update appointment: ${errorMessage}`);
+    }
   };
 
   const handleDeleteClick = (e, appointment) => {
@@ -219,12 +391,26 @@ export default function AllAppointments() {
     setDeleteConfirmModal(true);
   };
 
-  const handleConfirmDelete = () => {
-    const updated = appointments.filter(apt => apt.id !== appointmentToDelete.id);
-    setAppointments(updated);
-    setDeleteConfirmModal(false);
-    setAppointmentToDelete(null);
-    alert('Appointment deleted successfully!');
+  // DELETE: Handle appointment deletion via API
+  const handleConfirmDelete = async () => {
+    try {
+      // Call API to delete appointment
+      await appointmentsAPI.deleteAppointment(appointmentToDelete.id);
+
+      // Update local state
+      const updated = appointments.filter(apt => apt.id !== appointmentToDelete.id);
+      setAppointments(updated);
+      
+      // Close modal and show success
+      setDeleteConfirmModal(false);
+      setAppointmentToDelete(null);
+      alert('Appointment deleted successfully!');
+      await loadAppointments(filterStatus);
+    } catch (err) {
+      const errorMessage = formatErrorMessage(err);
+      console.error('Error deleting appointment:', err);
+      alert(`Failed to delete appointment: ${errorMessage}`);
+    }
   };
 
   const getConsultationTypeIcon = (type) => {
@@ -236,8 +422,10 @@ export default function AllAppointments() {
 
   const getStatusColor = (status) => {
     if (status === 'Confirmed') return 'bg-green-50 border-green-200 text-green-700';
+    if (status === 'Scheduled') return 'bg-purple-50 border-purple-200 text-purple-700';
     if (status === 'Pending') return 'bg-yellow-50 border-yellow-200 text-yellow-700';
     if (status === 'Completed') return 'bg-blue-50 border-blue-200 text-blue-700';
+    if (status === 'Cancelled') return 'bg-red-50 border-red-200 text-red-700';
     return 'bg-gray-50 border-gray-200 text-gray-700';
   };
 
@@ -272,7 +460,7 @@ export default function AllAppointments() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Status</label>
               <div className="flex gap-2 flex-wrap">
-                {['All', 'Confirmed', 'Pending', 'Completed'].map(status => (
+                {['ALL', 'Confirmed', 'Scheduled', 'Pending', 'Completed', 'Cancelled'].map(status => (
                   <button
                     key={status}
                     onClick={() => setFilterStatus(status)}
@@ -424,11 +612,22 @@ export default function AllAppointments() {
                 variant: 'primary'
               }
             ])
-          ] : selectedAppointment?.status === 'Completed' ? [
+          ] : ['Completed', 'Cancelled'].includes(selectedAppointment?.status) ? [
             {
               label: 'Close',
               onClick: () => setAppointmentModal(false),
               variant: 'primary'
+            }
+          ] : ['Confirmed', 'Scheduled'].includes(selectedAppointment?.status) ? [
+            {
+              label: 'Reschedule',
+              onClick: handleRescheduleAppointment,
+              variant: 'secondary'
+            },
+            {
+              label: 'Cancel',
+              onClick: handleCancelAppointment,
+              variant: 'danger'
             }
           ] : [
             {
@@ -591,10 +790,9 @@ export default function AllAppointments() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Time</label>
               <input
-                type="text"
+                type="time"
                 value={editFormData.time || ''}
                 onChange={(e) => setEditFormData({ ...editFormData, time: e.target.value })}
-                placeholder="e.g., 09:00 - 09:30"
                 className="w-full border p-2 rounded-lg outline-none focus:ring-2 focus:ring-teal-500"
               />
             </div>
@@ -605,8 +803,9 @@ export default function AllAppointments() {
                 onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
                 className="w-full border p-2 rounded-lg outline-none focus:ring-2 focus:ring-teal-500"
               >
-                <option>Pending</option>
                 <option>Confirmed</option>
+                <option>Scheduled</option>
+                <option>Pending</option>
                 <option>Completed</option>
                 <option>Cancelled</option>
               </select>

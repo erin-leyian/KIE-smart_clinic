@@ -1,6 +1,6 @@
-const pool = require('../db');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const https = require('https');
 const { 
   isValidEmail, 
   isValidPassword, 
@@ -20,6 +20,36 @@ const {
   getPaginationParams,
   buildPaginationResponse
 } = require('../utils/responseFormatter');
+
+// Supabase REST API helper - bypasses schema cache issues
+async function supabaseQuery(method, endpoint, body = null) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(`${process.env.SUPABASE_URL}/rest/v1${endpoint}`);
+    const headers = {
+      'Content-Type': 'application/json',
+      'apikey': process.env.SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+      'Prefer': 'return=representation',
+    };
+
+    const req = https.request(url, { method, headers }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const result = JSON.parse(data);
+          resolve({ data: result, status: res.statusCode, error: null });
+        } catch (e) {
+          resolve({ data: null, status: res.statusCode, error: data });
+        }
+      });
+    });
+
+    req.on('error', reject);
+    if (body) req.write(JSON.stringify(body));
+    req.end();
+  });
+}
 
 // ── POST /api/auth/register ───────────────────────────────────────────────────
 const register = async (req, res) => {
@@ -44,12 +74,9 @@ const register = async (req, res) => {
     }
 
     // Check if email already exists
-    const [existingUser] = await pool.query(
-      'SELECT id FROM users WHERE email = ?',
-      [email.toLowerCase()]
-    );
-
-    if (existingUser.length > 0) {
+    const { data: existing } = await supabaseQuery('GET', `/users?email=eq.${encodeURIComponent(email.toLowerCase())}`);
+    
+    if (Array.isArray(existing) && existing.length > 0) {
       return sendError(res, 'Email already exists', 409);
     }
 
@@ -57,29 +84,21 @@ const register = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const userId = generateUUID();
 
-    // Insert user
-    await pool.query(
-      `INSERT INTO users (id, firstName, lastName, email, password, role, phone, dateOfBirth, gender, address, city, state)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        userId,
-        sanitizeInput(firstName),
-        sanitizeInput(lastName),
-        email.toLowerCase(),
-        hashedPassword,
-        role,
-        phone || null,
-        dateOfBirth || null,
-        gender || null,
-        address || null,
-        city || null,
-        state || null
-      ]
-    );
+    // Insert user via REST API - use snake_case for column names
+    const { data: insertedUsers, status } = await supabaseQuery('POST', '/users', {
+      id: userId,
+      first_name: sanitizeInput(firstName),
+      last_name: sanitizeInput(lastName),
+      email: email.toLowerCase(),
+      password: hashedPassword,
+      role,
+    });
 
-    // Fetch created user
-    const [users] = await pool.query('SELECT * FROM users WHERE id = ?', [userId]);
-    const user = users[0];
+    if (status !== 201 && status !== 200) {
+      throw new Error(`Failed to create user: ${JSON.stringify(insertedUsers)}`);
+    }
+
+    const user = Array.isArray(insertedUsers) ? insertedUsers[0] : insertedUsers;
 
     // Generate JWT token
     const token = jwt.sign(
@@ -122,12 +141,9 @@ const login = async (req, res) => {
     }
 
     // Find user by email
-    const [users] = await pool.query(
-      'SELECT * FROM users WHERE email = ?',
-      [email.toLowerCase()]
-    );
+    const { data: users } = await supabaseQuery('GET', `/users?email=eq.${encodeURIComponent(email.toLowerCase())}`);
 
-    if (users.length === 0) {
+    if (!Array.isArray(users) || users.length === 0) {
       return sendError(res, 'Invalid email or password', 401);
     }
 
@@ -169,12 +185,9 @@ const getCurrentUser = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const [users] = await pool.query(
-      'SELECT * FROM users WHERE id = ?',
-      [userId]
-    );
+    const { data: users } = await supabaseQuery('GET', `/users?id=eq.${userId}`);
 
-    if (users.length === 0) {
+    if (!Array.isArray(users) || users.length === 0) {
       return sendError(res, 'User not found', 404);
     }
 
@@ -191,38 +204,41 @@ const getAllUsers = async (req, res) => {
     const { role, search, page = 1, limit = 10 } = req.query;
     const { offset } = getPaginationParams({ page, limit });
 
-    let query = 'SELECT * FROM users WHERE 1=1';
-    const params = [];
+    // Validation
+    if (role && !isValidRole(role)) {
+      return sendError(res, 'Invalid role filter', 400);
+    }
 
-    // Apply filters
+    // Build query params
+    let endpoint = '/users?select=*';
+    
     if (role) {
-      if (!isValidRole(role)) {
-        return sendError(res, 'Invalid role filter', 400);
-      }
-      query += ' AND role = ?';
-      params.push(role);
+      endpoint += `&role=eq.${role}`;
     }
 
+    // Apply pagination
+    endpoint += `&order=createdAt.desc&offset=${offset}&limit=${limit}`;
+
+    // Get data
+    const { data: users } = await supabaseQuery('GET', endpoint);
+    const userList = Array.isArray(users) ? users : [];
+
+    // Filter by search if provided
+    let filtered = userList;
     if (search) {
-      query += ' AND (firstName LIKE ? OR lastName LIKE ? OR email LIKE ?)';
-      const searchPattern = `%${sanitizeInput(search)}%`;
-      params.push(searchPattern, searchPattern, searchPattern);
+      const searchLower = sanitizeInput(search).toLowerCase();
+      filtered = userList.filter(u =>
+        u.firstName?.toLowerCase().includes(searchLower) ||
+        u.lastName?.toLowerCase().includes(searchLower) ||
+        u.email?.toLowerCase().includes(searchLower)
+      );
     }
 
-    // Get total count
-    const countQuery = query.replace('SELECT *', 'SELECT COUNT(*) as total');
-    const [countResult] = await pool.query(countQuery, params);
-    const total = countResult[0].total;
-
-    // Get paginated results
-    query += ' ORDER BY createdAt DESC LIMIT ? OFFSET ?';
-    const [users] = await pool.query(query, [...params, parseInt(limit), offset]);
-
-    const formattedUsers = users.map(formatUserResponse);
+    const formattedUsers = filtered.map(formatUserResponse);
 
     return sendSuccess(
       res,
-      buildPaginationResponse(formattedUsers, total, parseInt(page), parseInt(limit))
+      buildPaginationResponse(formattedUsers, filtered.length, parseInt(page), parseInt(limit))
     );
   } catch (error) {
     console.error('Get all users error:', error);
@@ -245,12 +261,9 @@ const getUserById = async (req, res) => {
       return sendError(res, 'Access denied', 403);
     }
 
-    const [users] = await pool.query(
-      'SELECT * FROM users WHERE id = ?',
-      [id]
-    );
+    const { data: users } = await supabaseQuery('GET', `/users?id=eq.${id}`);
 
-    if (users.length === 0) {
+    if (!Array.isArray(users) || users.length === 0) {
       return sendError(res, 'User not found', 404);
     }
 
@@ -278,8 +291,8 @@ const updateUser = async (req, res) => {
     }
 
     // Check user exists
-    const [users] = await pool.query('SELECT * FROM users WHERE id = ?', [id]);
-    if (users.length === 0) {
+    const { data: users } = await supabaseQuery('GET', `/users?id=eq.${id}`);
+    if (!Array.isArray(users) || users.length === 0) {
       return sendError(res, 'User not found', 404);
     }
 
@@ -294,60 +307,29 @@ const updateUser = async (req, res) => {
       return sendValidationError(res, errors);
     }
 
-    // Build update query dynamically
-    const updates = [];
-    const updateParams = [];
+    // Build update object
+    const updateData = {};
+    if (firstName !== undefined) updateData.firstName = sanitizeInput(firstName);
+    if (lastName !== undefined) updateData.lastName = sanitizeInput(lastName);
+    if (phone !== undefined) updateData.phone = phone || null;
+    if (dateOfBirth !== undefined) updateData.dateOfBirth = dateOfBirth || null;
+    if (gender !== undefined) updateData.gender = gender || null;
+    if (address !== undefined) updateData.address = address || null;
+    if (city !== undefined) updateData.city = city || null;
+    if (state !== undefined) updateData.state = state || null;
 
-    if (firstName !== undefined) {
-      updates.push('firstName = ?');
-      updateParams.push(sanitizeInput(firstName));
-    }
-    if (lastName !== undefined) {
-      updates.push('lastName = ?');
-      updateParams.push(sanitizeInput(lastName));
-    }
-    if (phone !== undefined) {
-      updates.push('phone = ?');
-      updateParams.push(phone || null);
-    }
-    if (dateOfBirth !== undefined) {
-      updates.push('dateOfBirth = ?');
-      updateParams.push(dateOfBirth || null);
-    }
-    if (gender !== undefined) {
-      updates.push('gender = ?');
-      updateParams.push(gender || null);
-    }
-    if (address !== undefined) {
-      updates.push('address = ?');
-      updateParams.push(address || null);
-    }
-    if (city !== undefined) {
-      updates.push('city = ?');
-      updateParams.push(city || null);
-    }
-    if (state !== undefined) {
-      updates.push('state = ?');
-      updateParams.push(state || null);
-    }
-
-    if (updates.length === 0) {
+    if (Object.keys(updateData).length === 0) {
       return sendError(res, 'No fields to update', 400);
     }
 
     // Execute update
-    updates.push('updatedAt = CURRENT_TIMESTAMP');
-    const updateQuery = `UPDATE users SET ${updates.join(', ')} WHERE id = ?`;
-    updateParams.push(id);
+    const { data: updatedUsers } = await supabaseQuery('PATCH', `/users?id=eq.${id}`, updateData);
 
-    await pool.query(updateQuery, updateParams);
-
-    // Fetch updated user
-    const [updatedUsers] = await pool.query('SELECT * FROM users WHERE id = ?', [id]);
+    const user = Array.isArray(updatedUsers) ? updatedUsers[0] : updatedUsers;
 
     return sendSuccess(
       res,
-      { user: formatUserResponse(updatedUsers[0]) },
+      { user: formatUserResponse(user) },
       'Profile updated successfully'
     );
   } catch (error) {
@@ -378,13 +360,13 @@ const deleteUser = async (req, res) => {
     }
 
     // Check user exists
-    const [users] = await pool.query('SELECT * FROM users WHERE id = ?', [id]);
-    if (users.length === 0) {
+    const { data: users } = await supabaseQuery('GET', `/users?id=eq.${id}`);
+    if (!Array.isArray(users) || users.length === 0) {
       return sendError(res, 'User not found', 404);
     }
 
     // Delete user
-    await pool.query('DELETE FROM users WHERE id = ?', [id]);
+    await supabaseQuery('DELETE', `/users?id=eq.${id}`);
 
     return sendSuccess(res, null, 'User deleted successfully');
   } catch (error) {

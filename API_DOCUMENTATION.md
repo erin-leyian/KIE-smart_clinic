@@ -3,16 +3,17 @@
 ## Table of Contents
 1. [Overview](#overview)
 2. [Base URL & Authentication](#base-url--authentication)
-3. [Authentication Endpoints](#authentication-endpoints)
-4. [User Management](#user-management)
-5. [Doctor Management](#doctor-management)
-6. [Appointments](#appointments)
-7. [Patient Records](#patient-records)
-8. [Queue Management](#queue-management)
-9. [Notifications](#notifications)
-10. [System Settings](#system-settings)
-11. [Frontend Component Structure](#frontend-component-structure)
-12. [Database Schema](#database-schema)
+3. [Health Check](#health-check)
+4. [Authentication Endpoints](#authentication-endpoints)
+5. [User Management](#user-management)
+6. [Doctor Management](#doctor-management)
+7. [Appointments](#appointments)
+8. [Patient Records](#patient-records)
+9. [Queue Management](#queue-management)
+10. [Notifications](#notifications)
+11. [System Settings](#system-settings)
+12. [Frontend Component Structure](#frontend-component-structure)
+13. [Database Schema](#database-schema)
 
 ---
 
@@ -26,7 +27,7 @@ Smart Clinic is a comprehensive healthcare management system with three user rol
 **Technology Stack:**
 - Frontend: React 18.3.1, Tailwind CSS, React Router v6
 - Backend: Node.js, Express.js
-- Database: MySQL/MariaDB
+- Database: Supabase (PostgreSQL)
 - Storage: Browser localStorage for admin settings
 
 ---
@@ -35,7 +36,12 @@ Smart Clinic is a comprehensive healthcare management system with three user rol
 
 ### Base URL
 ```
-http://localhost:5000/api
+http://localhost:3000
+```
+
+**API Routes Base:**
+```
+http://localhost:3000/api
 ```
 
 ### Authentication Method
@@ -55,6 +61,66 @@ Content-Type: application/json
 - `403`: Forbidden
 - `404`: Not Found
 - `500`: Server Error
+
+---
+
+## Health Check
+
+### Health Check Endpoint
+
+**Endpoint:** `GET /health`
+
+**Description:** Check the overall health of the API and database connection. No authentication required.
+
+**Request:**
+```bash
+curl http://localhost:3000/health
+```
+
+**Response (200 OK - Healthy):**
+```json
+{
+  "status": "healthy",
+  "project": "KIE Smart Clinic",
+  "timestamp": "2026-03-29T14:10:18.191Z",
+  "database": {
+    "connected": true,
+    "statusCode": 200,
+    "message": "Database connected"
+  },
+  "server": {
+    "status": "running",
+    "uptime": 193.774833791,
+    "nodeVersion": "v25.8.2",
+    "environment": "development"
+  }
+}
+```
+
+**Response (503 Service Unavailable - Unhealthy):**
+```json
+{
+  "status": "unhealthy",
+  "project": "KIE Smart Clinic",
+  "timestamp": "2026-03-29T14:10:18.191Z",
+  "database": {
+    "connected": false,
+    "statusCode": 0,
+    "message": "Database connection error: Connection timeout"
+  }
+}
+```
+
+**Status Codes:**
+- `200`: API and database are healthy and operational
+- `503`: API is running but database connection failed
+
+**Use Cases:**
+- Health monitoring and uptime tracking
+- CI/CD pipeline verification
+- Load balancer health checks
+- Server status monitoring
+- Database connectivity verification
 
 ---
 

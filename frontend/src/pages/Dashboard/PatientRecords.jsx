@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Modal from '../../components/Modal';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import { Clock, User, AlertCircle, Edit2, Save, X, Plus, FileText, Download, MessageSquare, Pill, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
-import mockData from '../../data/mockData.json';
+import { patientRecordsAPI, doctorsAPI } from '../../services/api';
 import { formatErrorMessage } from '../../utils/errorHandler';
 import { canEditPatientRecord } from '../../utils/dataAccessControl';
 import jsPDF from 'jspdf';
@@ -30,6 +30,7 @@ export default function PatientRecords() {
   const [consultationModal, setConsultationModal] = useState(false);
   const [notesModal, setNotesModal] = useState(false);
   const [medicationsModal, setMedicationsModal] = useState(false);
+  const [doctors, setDoctors] = useState([]);
   
   // Selected/Editing record
   const [selectedRecord, setSelectedRecord] = useState(null);
@@ -90,38 +91,12 @@ export default function PatientRecords() {
       setCurrentUser(user);
       setUserRole(user.role || 'patient');
       
-      // Simulate network request
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Fetch records from real API
+      const response = await patientRecordsAPI.getAllPatientRecords({
+        patientId: user.id
+      });
       
-      // Validate data
-      if (!mockData.patientRecords || !Array.isArray(mockData.patientRecords) || mockData.patientRecords.length === 0) {
-        throw new Error('No patient records found. Please try again.');
-      }
-      
-      // Filter records based on user role
-      let filteredRecords;
-      
-      if (user.role === 'patient') {
-        // Patients only see their own records
-        filteredRecords = mockData.patientRecords.filter(record => 
-          record.patientName === user.name
-        );
-      } else if (user.role === 'doctor') {
-        // Doctors see records of patients they consulted
-        filteredRecords = mockData.patientRecords.filter(record =>
-          record.doctorName === user.name
-        );
-      } else if (user.role === 'admin') {
-        // Admins see all records
-        filteredRecords = mockData.patientRecords;
-      } else {
-        // Default: show only own records
-        filteredRecords = mockData.patientRecords.filter(record =>
-          record.patientName === user.name
-        );
-      }
-      
-      setRecords(filteredRecords);
+      setRecords(response.data || []);
       setLoading(false);
     } catch (err) {
       const errorMessage = formatErrorMessage(err);
@@ -132,6 +107,21 @@ export default function PatientRecords() {
 
   useEffect(() => {
     fetchRecords();
+  }, []);
+
+  // Load doctors for consultation form
+  useEffect(() => {
+    const loadDoctors = async () => {
+      try {
+        const response = await doctorsAPI.getAllDoctors({ limit: 100 });
+        setDoctors(response.data || []);
+      } catch (err) {
+        console.error('Failed to load doctors:', err);
+        setDoctors([]);
+      }
+    };
+
+    loadDoctors();
   }, []);
 
   // Download PDF with watermark
@@ -407,13 +397,13 @@ export default function PatientRecords() {
 
   // Filter records
   const filteredRecords = records.filter(record => {
-    const recordDate = record.date.substring(0, 7);
+    const recordDate = (record.date || '').substring(0, 7);
     const matchStatus = filterStatus === 'All' || record.status === filterStatus;
-    const matchMonth = recordDate === filterMonth;
+    const matchMonth = !recordDate || recordDate === filterMonth;
     const matchSearch = 
-      record.patientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      record.issue.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      record.doctorName.toLowerCase().includes(searchQuery.toLowerCase());
+      (record.patientName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (record.issue || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (record.doctorName || '').toLowerCase().includes(searchQuery.toLowerCase());
     
     return matchStatus && matchMonth && matchSearch;
   });
@@ -426,20 +416,43 @@ export default function PatientRecords() {
     setEditModal(true);
   };
 
-  // Handle save edited record
-  const handleSaveRecord = () => {
+  // Handle save edited record - with API call
+  const handleSaveRecord = async () => {
     if (!editingRecord.patientName || !editingRecord.diagnosis || !editingRecord.treatment) {
       alert('Please fill in all required fields');
       return;
     }
     
-    const updatedRecords = records.map(r => 
-      r.id === editingRecord.id ? editingRecord : r
-    );
-    setRecords(updatedRecords);
-    setEditModal(false);
-    setEditingRecord(null);
-    setSelectedRecord(null);
+    try {
+      // Call API to update the record
+      await patientRecordsAPI.updatePatientRecord(editingRecord.id, {
+        patientName: editingRecord.patientName,
+        date: editingRecord.date,
+        time: editingRecord.time,
+        doctorName: editingRecord.doctorName,
+        issue: editingRecord.issue,
+        diagnosis: editingRecord.diagnosis,
+        treatment: editingRecord.treatment,
+        notes: editingRecord.notes,
+        status: editingRecord.status,
+        consultations: editingRecord.consultations,
+        allNotes: editingRecord.allNotes,
+        medications: editingRecord.medications
+      });
+      
+      const updatedRecords = records.map(r => 
+        r.id === editingRecord.id ? editingRecord : r
+      );
+      setRecords(updatedRecords);
+      setEditModal(false);
+      setEditingRecord(null);
+      setSelectedRecord(null);
+      alert('Record updated successfully!');
+    } catch (err) {
+      const errorMessage = formatErrorMessage(err);
+      console.error('Error updating record:', err);
+      alert(`Failed to update record: ${errorMessage}`);
+    }
   };
 
   // Handle add consultation
@@ -514,47 +527,80 @@ export default function PatientRecords() {
     setRecords(updatedRecords);
   };
 
-  // Handle add new record
-  const handleAddRecord = () => {
+  // Handle add new record - with API call
+  const handleAddRecord = async () => {
     if (!newRecord.patientName || !newRecord.diagnosis || !newRecord.treatment) {
       alert('Please fill in all required fields');
       return;
     }
     
-    const record = {
-      id: String(records.length + 1),
-      ...newRecord,
-      day: new Date(newRecord.date).toLocaleDateString('en-US', { weekday: 'short' }),
-      consultations: [],
-      allNotes: '',
-      medications: []
-    };
-    
-    setRecords([...records, record]);
-    setAddModal(false);
-    setNewRecord({
-      patientName: '',
-      date: new Date().toISOString().split('T')[0],
-      time: '09:00',
-      doctorName: '',
-      issue: '',
-      diagnosis: '',
-      treatment: '',
-      notes: '',
-      documents: false,
-      status: 'Today',
-      consultations: [],
-      allNotes: '',
-      medications: []
-    });
+    try {
+      // Call API to create new record
+      const response = await patientRecordsAPI.createPatientRecord({
+        patientName: newRecord.patientName,
+        date: newRecord.date,
+        time: newRecord.time,
+        doctorName: newRecord.doctorName,
+        issue: newRecord.issue,
+        diagnosis: newRecord.diagnosis,
+        treatment: newRecord.treatment,
+        notes: newRecord.notes,
+        status: newRecord.status,
+        consultations: [],
+        allNotes: '',
+        medications: []
+      });
+      
+      const record = {
+        id: response.data.id || String(records.length + 1),
+        ...newRecord,
+        day: new Date(newRecord.date).toLocaleDateString('en-US', { weekday: 'short' }),
+        consultations: [],
+        allNotes: '',
+        medications: []
+      };
+      
+      setRecords([...records, record]);
+      setAddModal(false);
+      setNewRecord({
+        patientName: '',
+        date: new Date().toISOString().split('T')[0],
+        time: '09:00',
+        doctorName: '',
+        issue: '',
+        diagnosis: '',
+        treatment: '',
+        notes: '',
+        documents: false,
+        status: 'Today',
+        consultations: [],
+        allNotes: '',
+        medications: []
+      });
+      alert('Record created successfully!');
+    } catch (err) {
+      const errorMessage = formatErrorMessage(err);
+      console.error('Error creating record:', err);
+      alert(`Failed to create record: ${errorMessage}`);
+    }
   };
 
-  // Handle delete record
-  const handleDeleteRecord = (id) => {
+  // Handle delete record - with API call
+  const handleDeleteRecord = async (id) => {
     if (window.confirm('Are you sure you want to delete this record?')) {
-      setRecords(records.filter(r => r.id !== id));
-      setDetailModal(false);
-      setSelectedRecord(null);
+      try {
+        // Call API to delete the record
+        await patientRecordsAPI.deletePatientRecord(id);
+        
+        setRecords(records.filter(r => r.id !== id));
+        setDetailModal(false);
+        setSelectedRecord(null);
+        alert('Record deleted successfully!');
+      } catch (err) {
+        const errorMessage = formatErrorMessage(err);
+        console.error('Error deleting record:', err);
+        alert(`Failed to delete record: ${errorMessage}`);
+      }
     }
   };
 
@@ -684,8 +730,8 @@ export default function PatientRecords() {
               </div>
               <div>
                 <p className="text-gray-600 font-medium">Status</p>
-                <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${STATUS_CONFIG[selectedRecord.status].bg} ${STATUS_CONFIG[selectedRecord.status].text}`}>
-                  {selectedRecord.status}
+                <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${STATUS_CONFIG[selectedRecord.status]?.bg || 'bg-gray-100'} ${STATUS_CONFIG[selectedRecord.status]?.text || 'text-gray-800'}`}>
+                  {selectedRecord.status || 'Unknown'}
                 </span>
               </div>
             </div>
@@ -894,8 +940,10 @@ export default function PatientRecords() {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-teal-500"
             >
               <option value="">Select a doctor</option>
-              {mockData.doctors.map(doc => (
-                <option key={doc.id} value={doc.name}>{doc.name}</option>
+              {doctors.map(doc => (
+                <option key={doc.id} value={`${doc.firstName || ''} ${doc.lastName || ''}`}>
+                  {`${doc.firstName || ''} ${doc.lastName || ''}`}
+                </option>
               ))}
             </select>
           </div>
@@ -1104,8 +1152,10 @@ export default function PatientRecords() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-teal-500"
               >
                 <option value="">Select a doctor</option>
-                {mockData.doctors.map(doc => (
-                  <option key={doc.id} value={doc.name}>{doc.name} - {doc.specialty}</option>
+                {doctors.map(doc => (
+                  <option key={doc.id} value={`${doc.firstName || ''} ${doc.lastName || ''}`}>
+                    {`${doc.firstName || ''} ${doc.lastName || ''}`} - {doc.specialization || ''}
+                  </option>
                 ))}
               </select>
             </div>
@@ -1243,8 +1293,10 @@ export default function PatientRecords() {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-teal-500"
             >
               <option value="">Select a doctor</option>
-              {mockData.doctors.map(doc => (
-                <option key={doc.id} value={doc.name}>{doc.name} - {doc.specialty}</option>
+              {doctors.map(doc => (
+                <option key={doc.id} value={`${doc.firstName || ''} ${doc.lastName || ''}`}>
+                  {`${doc.firstName || ''} ${doc.lastName || ''}`} - {doc.specialization || ''}
+                </option>
               ))}
             </select>
           </div>
@@ -1351,8 +1403,8 @@ export default function PatientRecords() {
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="font-semibold text-gray-800">{record.patientName}</h3>
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${STATUS_CONFIG[record.status].bg} ${STATUS_CONFIG[record.status].text}`}>
-                      {record.status}
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${(STATUS_CONFIG[record.status] || STATUS_CONFIG['Upcoming']).bg} ${(STATUS_CONFIG[record.status] || STATUS_CONFIG['Upcoming']).text}`}>
+                      {record.status || 'Upcoming'}
                     </span>
                   </div>
                   <div className="grid grid-cols-2 gap-4 text-sm text-gray-600 mb-3">

@@ -1,80 +1,155 @@
-const pool = require('../db');
+const https = require('https');
 const { 
   sendSuccess, sendError, sendValidationError, 
   getPaginationParams, buildPaginationResponse, formatAppointmentResponse 
 } = require('../utils/responseFormatter');
+const { notifyAppointmentCreated } = require('./notifications.controller');
 const { 
   isValidUUID, isValidDate, isFutureDate, isValidTime, generateUUID, sanitizeInput 
 } = require('../utils/validation');
 
+// Supabase REST API helper
+async function supabaseQuery(method, endpoint, body = null) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(`${process.env.SUPABASE_URL}/rest/v1${endpoint}`);
+    const headers = {
+      'Content-Type': 'application/json',
+      'apikey': process.env.SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+      'Prefer': 'return=representation',
+    };
+
+    const req = https.request(url, { method, headers }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const result = JSON.parse(data);
+          resolve({ data: result, status: res.statusCode, error: null });
+        } catch (e) {
+          resolve({ data: null, status: res.statusCode, error: data });
+        }
+      });
+    });
+
+    req.on('error', reject);
+    if (body) req.write(JSON.stringify(body));
+    req.end();
+  });
+}
+
 // ── POST /api/appointments ────────────────────────────────────────────────────
 const createAppointment = async (req, res) => {
   try {
-    const { doctorId, patientId, appointmentDate, appointmentTime, reason, notes } = req.body;
+    // Handle both camelCase and snake_case field names
+    const {
+      doctorId,
+      doctor_id,
+      patientId,
+      patient_id,
+      appointmentDate,
+      appointment_date,
+      appointmentTime,
+      appointment_time,
+      reason,
+      notes,
+      status
+    } = req.body;
+
     const userId = req.user?.id;
     const errors = [];
 
+    // Use snake_case internally, but accept both formats
+    const finalDoctorId = doctor_id || doctorId;
+    const finalPatientId = patient_id || patientId;
+    const finalAppointmentDate = appointment_date || appointmentDate;
+    const finalAppointmentTime = appointment_time || appointmentTime;
+
     // Validation
-    if (!doctorId) errors.push({ field: 'doctorId', message: 'Doctor ID is required' });
-    else if (!isValidUUID(doctorId)) errors.push({ field: 'doctorId', message: 'Invalid doctor ID format' });
+    if (!finalDoctorId) errors.push('doctorId is required');
+    else if (!isValidUUID(finalDoctorId)) errors.push('Invalid doctor ID format');
 
-    if (!patientId) errors.push({ field: 'patientId', message: 'Patient ID is required' });
-    else if (!isValidUUID(patientId)) errors.push({ field: 'patientId', message: 'Invalid patient ID format' });
+    if (!finalPatientId) errors.push('patientId is required');
+    else if (!isValidUUID(finalPatientId)) errors.push('Invalid patient ID format');
 
-    if (!appointmentDate) errors.push({ field: 'appointmentDate', message: 'Appointment date is required' });
-    else if (!isValidDate(appointmentDate)) errors.push({ field: 'appointmentDate', message: 'Invalid date format (YYYY-MM-DD)' });
-    else if (!isFutureDate(appointmentDate)) errors.push({ field: 'appointmentDate', message: 'Date must be in the future' });
+    if (!finalAppointmentDate) errors.push('appointmentDate is required');
+    else if (!isValidDate(finalAppointmentDate)) errors.push('Invalid date format (YYYY-MM-DD)');
+    else if (!isFutureDate(finalAppointmentDate)) errors.push('Date must be in the future');
 
-    if (!appointmentTime) errors.push({ field: 'appointmentTime', message: 'Appointment time is required' });
-    else if (!isValidTime(appointmentTime)) errors.push({ field: 'appointmentTime', message: 'Invalid time format (HH:MM)' });
+    if (!finalAppointmentTime) errors.push('appointmentTime is required');
+    else if (!isValidTime(finalAppointmentTime)) errors.push('Invalid time format (HH:MM)');
 
-    if (!reason) errors.push({ field: 'reason', message: 'Reason is required' });
-    else if (sanitizeInput(reason).length < 5) errors.push({ field: 'reason', message: 'Reason must be at least 5 characters' });
+    if (!reason) errors.push('reason is required');
+    else if (sanitizeInput(reason).length < 5) errors.push('Reason must be at least 5 characters');
 
     if (errors.length > 0) return sendValidationError(res, errors);
 
-    // Check if doctor exists and is active
-    const [doctorCheck] = await pool.query('SELECT id, firstName, lastName FROM users WHERE id = ? AND role = ?', [doctorId, 'doctor']);
-    if (doctorCheck.length === 0) return sendError(res, 'Doctor not found', 404);
+    // Check if doctor exists
+    const { data: doctors } = await supabaseQuery('GET', `/users?id=eq.${finalDoctorId}&role=eq.doctor`);
+    if (!Array.isArray(doctors) || doctors.length === 0) return sendError(res, 'Doctor not found', 404);
+
+  const doctorUser = doctors[0];
+  const { data: doctorSpecs } = await supabaseQuery('GET', `/doctor_specializations?doctor_id=eq.${finalDoctorId}`);
+  const doctorSpec = Array.isArray(doctorSpecs) && doctorSpecs.length > 0 ? doctorSpecs[0] : null;
 
     // Check if patient exists
-    const [patientCheck] = await pool.query('SELECT id, firstName, lastName FROM users WHERE id = ? AND role = ?', [patientId, 'patient']);
-    if (patientCheck.length === 0) return sendError(res, 'Patient not found', 404);
-
-    // Check doctor's availability for this time slot
-    const dayOfWeek = new Date(appointmentDate).toLocaleDateString('en-US', { weekday: 'long' });
-    const [availability] = await pool.query(
-      'SELECT * FROM availableHours WHERE doctorId = ? AND dayOfWeek = ? AND ? BETWEEN startTime AND endTime',
-      [doctorId, dayOfWeek, appointmentTime]
-    );
-    if (availability.length === 0) return sendError(res, 'Doctor is not available at this time', 400);
+    const { data: patients } = await supabaseQuery('GET', `/users?id=eq.${finalPatientId}&role=eq.patient`);
+    if (!Array.isArray(patients) || patients.length === 0) return sendError(res, 'Patient not found', 404);
+  const patientUser = patients[0];
 
     // Check for double-booking
-    const [existing] = await pool.query(
-      'SELECT id FROM appointments WHERE doctorId = ? AND appointmentDate = ? AND appointmentTime = ? AND status != ?',
-      [doctorId, appointmentDate, appointmentTime, 'cancelled']
-    );
-    if (existing.length > 0) return sendError(res, 'Time slot already booked', 409);
+    const { data: existing } = await supabaseQuery('GET', `/appointments?doctor_id=eq.${finalDoctorId}&appointment_date=eq.${finalAppointmentDate}&appointment_time=eq.${finalAppointmentTime}&status=neq.cancelled`);
+    if (Array.isArray(existing) && existing.length > 0) return sendError(res, 'Time slot already booked', 409);
 
     // Create appointment
     const appointmentId = generateUUID();
-    const [result] = await pool.query(
-      `INSERT INTO appointments (id, doctorId, patientId, appointmentDate, appointmentTime, reason, notes, status, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-      [appointmentId, doctorId, patientId, appointmentDate, appointmentTime, sanitizeInput(reason), sanitizeInput(notes || null), 'scheduled']
-    );
+    const { data: created, status: statusCode } = await supabaseQuery('POST', '/appointments', {
+      id: appointmentId,
+      doctor_id: finalDoctorId,
+      patient_id: finalPatientId,
+      appointment_date: finalAppointmentDate,
+      appointment_time: finalAppointmentTime,
+      reason: sanitizeInput(reason),
+      notes: notes ? sanitizeInput(notes) : null,
+      status: status || 'scheduled',
+    });
 
-    // Fetch the created appointment
-    const [appointment] = await pool.query(
-      `SELECT a.*, d.firstName AS doctorFirstName, d.lastName AS doctorLastName, p.firstName AS patientFirstName, p.lastName AS patientLastName
-       FROM appointments a
-       JOIN users d ON a.doctorId = d.id
-       JOIN users p ON a.patientId = p.id
-       WHERE a.id = ?`,
-      [appointmentId]
-    );
+    if (statusCode !== 201 && statusCode !== 200) {
+      throw new Error(`Failed to create appointment: ${JSON.stringify(created)}`);
+    }
 
-    return sendSuccess(res, formatAppointmentResponse(appointment[0]), 'Appointment created successfully', 201);
+    const createdAppointment = Array.isArray(created) ? created[0] : created;
+    const doctor = {
+      firstName: doctorUser.first_name,
+      lastName: doctorUser.last_name,
+      email: doctorUser.email,
+      specialty: doctorSpec?.specialization || null,
+      consultationFee: doctorSpec?.consultation_fee ?? null,
+    };
+    const patient = {
+      firstName: patientUser.first_name,
+      lastName: patientUser.last_name,
+      email: patientUser.email,
+    };
+
+    await notifyAppointmentCreated({
+      id: createdAppointment.id,
+      patient_id: finalPatientId,
+      doctor_id: finalDoctorId,
+      doctor_first_name: doctorUser.first_name,
+      doctor_last_name: doctorUser.last_name,
+      patient_first_name: patientUser.first_name,
+      patient_last_name: patientUser.last_name,
+      appointment_date: finalAppointmentDate,
+      appointment_time: finalAppointmentTime,
+    });
+
+    return sendSuccess(
+      res,
+      { appointment: formatAppointmentResponse(createdAppointment, doctor, patient) },
+      'Appointment created successfully',
+      201
+    );
   } catch (err) {
     console.error('Create appointment error:', err);
     return sendError(res, 'Failed to create appointment', 500, err.message);
@@ -84,27 +159,20 @@ const createAppointment = async (req, res) => {
 // ── GET /api/appointments ─────────────────────────────────────────────────────
 const getAllAppointments = async (req, res) => {
   try {
-    const { page, limit } = getPaginationParams(req.query);
+    const { page = 1, limit = 10 } = req.query;
     const { status, date, doctorId, patientId } = req.query;
     const userId = req.user?.id;
     const userRole = req.user?.role;
+    const { offset } = getPaginationParams({ page, limit });
 
-    let query = `
-      SELECT a.*, d.firstName AS doctorFirstName, d.lastName AS doctorLastName, p.firstName AS patientFirstName, p.lastName AS patientLastName
-      FROM appointments a
-      JOIN users d ON a.doctorId = d.id
-      JOIN users p ON a.patientId = p.id
-      WHERE 1=1
-    `;
-    const params = [];
+    // Build REST API query
+    let endpoint = `/appointments?limit=${limit}&offset=${offset}&order=appointment_date.asc,appointment_time.asc`;
 
     // Role-based filtering
     if (userRole === 'patient') {
-      query += ' AND a.patientId = ?';
-      params.push(userId);
+      endpoint += `&patient_id=eq.${userId}`;
     } else if (userRole === 'doctor') {
-      query += ' AND a.doctorId = ?';
-      params.push(userId);
+      endpoint += `&doctor_id=eq.${userId}`;
     }
     // Admin sees all appointments
 
@@ -112,44 +180,70 @@ const getAllAppointments = async (req, res) => {
     if (status) {
       const validStatuses = ['scheduled', 'completed', 'cancelled', 'no-show'];
       if (validStatuses.includes(status)) {
-        query += ' AND a.status = ?';
-        params.push(status);
+        endpoint += `&status=eq.${status}`;
       }
     }
 
     if (date && isValidDate(date)) {
-      query += ' AND DATE(a.appointmentDate) = ?';
-      params.push(date);
+      endpoint += `&appointment_date=eq.${date}`;
     }
 
     if (doctorId && isValidUUID(doctorId)) {
-      query += ' AND a.doctorId = ?';
-      params.push(doctorId);
+      endpoint += `&doctor_id=eq.${doctorId}`;
     }
 
     if (patientId && isValidUUID(patientId)) {
-      query += ' AND a.patientId = ?';
-      params.push(patientId);
+      endpoint += `&patient_id=eq.${patientId}`;
     }
 
-    query += ' ORDER BY a.appointmentDate ASC, a.appointmentTime ASC';
+    const { data: appointments, status: respStatus } = await supabaseQuery('GET', endpoint);
 
-    // Get total count
-    const countQuery = query.replace(/SELECT.*?FROM/, 'SELECT COUNT(*) as total FROM');
-    const [countResult] = await pool.query(countQuery, params);
-    const total = countResult[0].total;
+    if (respStatus !== 200 || !Array.isArray(appointments)) {
+      throw new Error(`Failed to fetch appointments: ${JSON.stringify(appointments)}`);
+    }
 
-    // Get paginated results
-    const offset = (page - 1) * limit;
-    query += ' LIMIT ?, ?';
-    params.push(offset, limit);
+    // Fetch doctor and patient info for each appointment to get names
+    const formattedAppointments = await Promise.all(
+      appointments.map(async (apt) => {
+        let doctor = null;
+        let patient = null;
 
-    const [appointments] = await pool.query(query, params);
+        // Fetch doctor info
+        if (apt.doctor_id) {
+          const { data: docData } = await supabaseQuery('GET', `/users?id=eq.${apt.doctor_id}`);
+          const { data: docSpecData } = await supabaseQuery('GET', `/doctor_specializations?doctor_id=eq.${apt.doctor_id}`);
+          const docSpec = Array.isArray(docSpecData) && docSpecData.length > 0 ? docSpecData[0] : null;
+          if (Array.isArray(docData) && docData.length > 0) {
+            const doc = docData[0];
+            doctor = {
+              firstName: doc.first_name,
+              lastName: doc.last_name,
+              email: doc.email,
+              specialty: docSpec?.specialization || null,
+              consultationFee: docSpec?.consultation_fee ?? null,
+            };
+          }
+        }
 
-    const formattedAppointments = appointments.map(apt => formatAppointmentResponse(apt));
-    const pagination = buildPaginationResponse(formattedAppointments, total, page, limit);
+        // Fetch patient info
+        if (apt.patient_id) {
+          const { data: patData } = await supabaseQuery('GET', `/users?id=eq.${apt.patient_id}`);
+          if (Array.isArray(patData) && patData.length > 0) {
+            const pat = patData[0];
+            patient = {
+              firstName: pat.first_name,
+              lastName: pat.last_name,
+              email: pat.email
+            };
+          }
+        }
 
-    return sendSuccess(res, formattedAppointments, 'Appointments retrieved successfully', 200, pagination);
+        return formatAppointmentResponse(apt, doctor, patient);
+      })
+    );
+    const pagination = buildPaginationResponse(formattedAppointments, formattedAppointments.length, parseInt(page), parseInt(limit));
+
+    return sendSuccess(res, { data: formattedAppointments, pagination });
   } catch (err) {
     console.error('Get appointments error:', err);
     return sendError(res, 'Failed to fetch appointments', 500, err.message);
@@ -165,35 +259,62 @@ const getAppointmentById = async (req, res) => {
 
     if (!isValidUUID(id)) return sendError(res, 'Invalid appointment ID format', 400);
 
-    const [appointments] = await pool.query(
-      `SELECT a.*, d.firstName AS doctorFirstName, d.lastName AS doctorLastName, p.firstName AS patientFirstName, p.lastName AS patientLastName
-       FROM appointments a
-       JOIN users d ON a.doctorId = d.id
-       JOIN users p ON a.patientId = p.id
-       WHERE a.id = ?`,
-      [id]
-    );
+    const { data: appointments, status } = await supabaseQuery('GET', `/appointments?id=eq.${id}`);
 
-    if (appointments.length === 0) return sendError(res, 'Appointment not found', 404);
+    if (status !== 200 || !Array.isArray(appointments) || appointments.length === 0) {
+      return sendError(res, 'Appointment not found', 404);
+    }
 
     const appointment = appointments[0];
 
     // Access control: patient sees own, doctor sees their appointments, admin sees all
-    if (userRole === 'patient' && appointment.patientId !== userId) {
+    if (userRole === 'patient' && appointment.patient_id !== userId) {
       return sendError(res, 'Unauthorized to view this appointment', 403);
     }
-    if (userRole === 'doctor' && appointment.doctorId !== userId) {
+    if (userRole === 'doctor' && appointment.doctor_id !== userId) {
       return sendError(res, 'Unauthorized to view this appointment', 403);
     }
 
-    return sendSuccess(res, formatAppointmentResponse(appointment), 'Appointment retrieved successfully');
+    // Fetch doctor and patient info
+    let doctor = null;
+    let patient = null;
+
+    if (appointment.doctor_id) {
+      const { data: docData } = await supabaseQuery('GET', `/users?id=eq.${appointment.doctor_id}`);
+      const { data: docSpecData } = await supabaseQuery('GET', `/doctor_specializations?doctor_id=eq.${appointment.doctor_id}`);
+      const docSpec = Array.isArray(docSpecData) && docSpecData.length > 0 ? docSpecData[0] : null;
+      if (Array.isArray(docData) && docData.length > 0) {
+        const doc = docData[0];
+        doctor = {
+          firstName: doc.first_name,
+          lastName: doc.last_name,
+          email: doc.email,
+          specialty: docSpec?.specialization || null,
+          consultationFee: docSpec?.consultation_fee ?? null,
+        };
+      }
+    }
+
+    if (appointment.patient_id) {
+      const { data: patData } = await supabaseQuery('GET', `/users?id=eq.${appointment.patient_id}`);
+      if (Array.isArray(patData) && patData.length > 0) {
+        const pat = patData[0];
+        patient = {
+          firstName: pat.first_name,
+          lastName: pat.last_name,
+          email: pat.email
+        };
+      }
+    }
+
+    return sendSuccess(res, { appointment: formatAppointmentResponse(appointment, doctor, patient) });
   } catch (err) {
     console.error('Get appointment by ID error:', err);
     return sendError(res, 'Failed to fetch appointment', 500, err.message);
   }
 };
 
-// ── PUT /api/appointments/:id ─────────────────────────────────────────────────
+// ── PATCH /api/appointments/:id ──────────────────────────────────────────────
 const updateAppointment = async (req, res) => {
   try {
     const { id } = req.params;
@@ -204,13 +325,15 @@ const updateAppointment = async (req, res) => {
     if (!isValidUUID(id)) return sendError(res, 'Invalid appointment ID format', 400);
 
     // Get appointment
-    const [appointments] = await pool.query('SELECT * FROM appointments WHERE id = ?', [id]);
-    if (appointments.length === 0) return sendError(res, 'Appointment not found', 404);
+    const { data: appointments } = await supabaseQuery('GET', `/appointments?id=eq.${id}`);
+    if (!Array.isArray(appointments) || appointments.length === 0) {
+      return sendError(res, 'Appointment not found', 404);
+    }
 
     const appointment = appointments[0];
 
     // Access control: patient updates own, doctor/admin can update any
-    if (userRole === 'patient' && appointment.patientId !== userId) {
+    if (userRole === 'patient' && appointment.patient_id !== userId) {
       return sendError(res, 'Unauthorized to update this appointment', 403);
     }
 
@@ -218,93 +341,53 @@ const updateAppointment = async (req, res) => {
 
     // Validation for optional fields
     if (appointmentDate !== undefined) {
-      if (!isValidDate(appointmentDate)) errors.push({ field: 'appointmentDate', message: 'Invalid date format (YYYY-MM-DD)' });
-      else if (!isFutureDate(appointmentDate)) errors.push({ field: 'appointmentDate', message: 'Date must be in the future' });
+      if (!isValidDate(appointmentDate)) errors.push('Invalid date format (YYYY-MM-DD)');
+      else if (!isFutureDate(appointmentDate)) errors.push('Date must be in the future');
     }
 
     if (appointmentTime !== undefined && !isValidTime(appointmentTime)) {
-      errors.push({ field: 'appointmentTime', message: 'Invalid time format (HH:MM)' });
+      errors.push('Invalid time format (HH:MM)');
     }
 
     if (reason !== undefined && sanitizeInput(reason).length < 5) {
-      errors.push({ field: 'reason', message: 'Reason must be at least 5 characters' });
+      errors.push('Reason must be at least 5 characters');
     }
 
     if (status !== undefined) {
       const validStatuses = ['scheduled', 'completed', 'cancelled', 'no-show'];
       if (!validStatuses.includes(status)) {
-        errors.push({ field: 'status', message: `Status must be one of: ${validStatuses.join(', ')}` });
+        errors.push(`Status must be one of: ${validStatuses.join(', ')}`);
       }
     }
 
     if (errors.length > 0) return sendValidationError(res, errors);
 
-    // Check availability if time is being changed
+    // Check for double-booking if time is being changed
     if (appointmentDate || appointmentTime) {
-      const newDate = appointmentDate || appointment.appointmentDate;
-      const newTime = appointmentTime || appointment.appointmentTime;
-      const dayOfWeek = new Date(newDate).toLocaleDateString('en-US', { weekday: 'long' });
+      const newDate = appointmentDate || appointment.appointment_date;
+      const newTime = appointmentTime || appointment.appointment_time;
 
-      const [availability] = await pool.query(
-        'SELECT * FROM availableHours WHERE doctorId = ? AND dayOfWeek = ? AND ? BETWEEN startTime AND endTime',
-        [appointment.doctorId, dayOfWeek, newTime]
-      );
-      if (availability.length === 0) return sendError(res, 'Doctor is not available at this time', 400);
-
-      // Check for double-booking
-      const [existing] = await pool.query(
-        'SELECT id FROM appointments WHERE doctorId = ? AND appointmentDate = ? AND appointmentTime = ? AND id != ? AND status != ?',
-        [appointment.doctorId, newDate, newTime, id, 'cancelled']
-      );
-      if (existing.length > 0) return sendError(res, 'Time slot already booked', 409);
+      const { data: existing } = await supabaseQuery('GET', `/appointments?doctor_id=eq.${appointment.doctor_id}&appointment_date=eq.${newDate}&appointment_time=eq.${newTime}&id=neq.${id}&status=neq.cancelled`);
+      if (Array.isArray(existing) && existing.length > 0) {
+        return sendError(res, 'Time slot already booked', 409);
+      }
     }
 
-    // Build update query
-    const updates = [];
-    const values = [];
+    // Build update data
+    const updateData = {};
+    if (appointmentDate !== undefined) updateData.appointment_date = appointmentDate;
+    if (appointmentTime !== undefined) updateData.appointment_time = appointmentTime;
+    if (reason !== undefined) updateData.reason = sanitizeInput(reason);
+    if (notes !== undefined) updateData.notes = sanitizeInput(notes);
+    if (status !== undefined) updateData.status = status;
 
-    if (appointmentDate !== undefined) {
-      updates.push('appointmentDate = ?');
-      values.push(appointmentDate);
-    }
-    if (appointmentTime !== undefined) {
-      updates.push('appointmentTime = ?');
-      values.push(appointmentTime);
-    }
-    if (reason !== undefined) {
-      updates.push('reason = ?');
-      values.push(sanitizeInput(reason));
-    }
-    if (notes !== undefined) {
-      updates.push('notes = ?');
-      values.push(sanitizeInput(notes));
-    }
-    if (status !== undefined) {
-      updates.push('status = ?');
-      values.push(status);
+    if (Object.keys(updateData).length === 0) {
+      return sendError(res, 'No fields to update', 400);
     }
 
-    if (updates.length === 0) return sendError(res, 'No fields to update', 400);
+    const { data: updated } = await supabaseQuery('PATCH', `/appointments?id=eq.${id}`, updateData);
 
-    updates.push('updatedAt = NOW()');
-    values.push(id);
-
-    await pool.query(
-      `UPDATE appointments SET ${updates.join(', ')} WHERE id = ?`,
-      values
-    );
-
-    // Fetch updated appointment
-    const [updated] = await pool.query(
-      `SELECT a.*, d.firstName AS doctorFirstName, d.lastName AS doctorLastName, p.firstName AS patientFirstName, p.lastName AS patientLastName
-       FROM appointments a
-       JOIN users d ON a.doctorId = d.id
-       JOIN users p ON a.patientId = p.id
-       WHERE a.id = ?`,
-      [id]
-    );
-
-    return sendSuccess(res, formatAppointmentResponse(updated[0]), 'Appointment updated successfully');
+    return sendSuccess(res, { appointment: updated }, 'Appointment updated successfully');
   } catch (err) {
     console.error('Update appointment error:', err);
     return sendError(res, 'Failed to update appointment', 500, err.message);
@@ -315,7 +398,7 @@ const updateAppointment = async (req, res) => {
 const deleteAppointment = async (req, res) => {
   try {
     const { id } = req.params;
-    const { confirmation, reason } = req.body;
+    const { confirmation } = req.body;
     const userId = req.user?.id;
     const userRole = req.user?.role;
 
@@ -324,18 +407,24 @@ const deleteAppointment = async (req, res) => {
     if (!confirmation) return sendError(res, 'Confirmation required to delete appointment', 400);
 
     // Get appointment
-    const [appointments] = await pool.query('SELECT * FROM appointments WHERE id = ?', [id]);
-    if (appointments.length === 0) return sendError(res, 'Appointment not found', 404);
+    const { data: appointments } = await supabaseQuery('GET', `/appointments?id=eq.${id}`);
+    if (!Array.isArray(appointments) || appointments.length === 0) {
+      return sendError(res, 'Appointment not found', 404);
+    }
 
     const appointment = appointments[0];
 
     // Access control: patient deletes own, doctor/admin can delete any
-    if (userRole === 'patient' && appointment.patientId !== userId) {
+    if (userRole === 'patient' && appointment.patient_id !== userId) {
       return sendError(res, 'Unauthorized to delete this appointment', 403);
     }
 
     // Delete appointment
-    await pool.query('DELETE FROM appointments WHERE id = ?', [id]);
+    const { status } = await supabaseQuery('DELETE', `/appointments?id=eq.${id}`);
+
+    if (status !== 204 && status !== 200) {
+      throw new Error('Failed to delete appointment');
+    }
 
     return sendSuccess(res, null, 'Appointment deleted successfully');
   } catch (err) {

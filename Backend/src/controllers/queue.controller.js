@@ -1,10 +1,40 @@
-const pool = require('../db');
+const https = require('https');
 const { 
   sendSuccess, sendError, sendValidationError 
 } = require('../utils/responseFormatter');
 const { 
   isValidUUID, isValidQueueStatus, generateUUID, sanitizeInput 
 } = require('../utils/validation');
+
+// Supabase REST API helper
+async function supabaseQuery(method, endpoint, body = null) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(`${process.env.SUPABASE_URL}/rest/v1${endpoint}`);
+    const headers = {
+      'Content-Type': 'application/json',
+      'apikey': process.env.SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+      'Prefer': 'return=representation',
+    };
+
+    const req = https.request(url, { method, headers }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const result = JSON.parse(data);
+          resolve({ data: result, status: res.statusCode, error: null });
+        } catch (e) {
+          resolve({ data: null, status: res.statusCode, error: data });
+        }
+      });
+    });
+
+    req.on('error', reject);
+    if (body) req.write(JSON.stringify(body));
+    req.end();
+  });
+}
 
 // ── GET /api/queue/doctor/:doctorId ───────────────────────────────────────────
 const getQueueForDoctor = async (req, res) => {
@@ -21,51 +51,33 @@ const getQueueForDoctor = async (req, res) => {
     }
 
     // Check doctor exists
-    const [doctorCheck] = await pool.query('SELECT id FROM users WHERE id = ? AND role = ?', [doctorId, 'doctor']);
-    if (doctorCheck.length === 0) return sendError(res, 'Doctor not found', 404);
+    const { data: doctors } = await supabaseQuery('GET', `/users?id=eq.${doctorId}&role=eq.doctor`);
+    if (!Array.isArray(doctors) || doctors.length === 0) {
+      return sendError(res, 'Doctor not found', 404);
+    }
 
     // Get queue for this doctor, ordered by position
-    const [queueEntries] = await pool.query(
-      `SELECT 
-        q.id, q.appointmentId, q.patientId, q.status, q.position, 
-        q.estimatedWaitTime, q.arrivedAt, q.completedAt,
-        p.firstName AS patientFirstName, p.lastName AS patientLastName, p.phone AS patientPhone,
-        a.reason
-       FROM queueEntries q
-       JOIN users p ON q.patientId = p.id
-       LEFT JOIN appointments a ON q.appointmentId = a.id
-       WHERE q.doctorId = ? AND q.status IN (?, ?)
-       ORDER BY q.position ASC`,
-      [doctorId, 'waiting', 'in-progress']
-    );
+    const { data: queueEntries } = await supabaseQuery('GET', `/queue_entries?doctor_id=eq.${doctorId}&status=in.(waiting,in-progress)&order=position.asc`);
+
+    if (!Array.isArray(queueEntries)) {
+      return sendError(res, 'Failed to fetch queue', 500);
+    }
 
     // Format queue entries
     const formattedQueue = queueEntries.map(entry => ({
       id: entry.id,
-      appointmentId: entry.appointmentId,
-      patientId: entry.patientId,
-      patientName: `${entry.patientFirstName} ${entry.patientLastName}`,
-      patientPhone: entry.patientPhone,
-      reason: entry.reason,
+      appointmentId: entry.appointment_id,
+      patientId: entry.patient_id,
       status: entry.status,
       position: entry.position,
-      estimatedWaitTime: entry.estimatedWaitTime,
-      arrivedAt: entry.arrivedAt,
+      estimatedWaitTime: entry.estimated_wait_time,
+      arrivedAt: entry.joined_at,
+      servedAt: entry.served_at,
     }));
-
-    // Calculate average wait time
-    const completedEntries = await pool.query(
-      `SELECT AVG(TIMESTAMPDIFF(MINUTE, arrivedAt, completedAt)) AS avgTime
-       FROM queueEntries
-       WHERE doctorId = ? AND status = ? AND completedAt IS NOT NULL`,
-      [doctorId, 'completed']
-    );
-    const averageWaitTime = completedEntries[0][0]?.avgTime || 0;
 
     return sendSuccess(res, {
       queue: formattedQueue,
       total: formattedQueue.length,
-      averageWaitTime: Math.round(averageWaitTime),
     }, 'Queue retrieved successfully');
   } catch (err) {
     console.error('Get queue for doctor error:', err);
@@ -73,7 +85,7 @@ const getQueueForDoctor = async (req, res) => {
   }
 };
 
-// ── PUT /api/queue/:queueId ───────────────────────────────────────────────────
+// ── PATCH /api/queue/:queueId ────────────────────────────────────────────────
 const updateQueueStatus = async (req, res) => {
   try {
     const { queueId } = req.params;
@@ -84,72 +96,54 @@ const updateQueueStatus = async (req, res) => {
     if (!isValidUUID(queueId)) return sendError(res, 'Invalid queue ID format', 400);
 
     const errors = [];
-
-    if (!status) errors.push({ field: 'status', message: 'Status is required' });
-    else if (!isValidQueueStatus(status)) {
-      errors.push({ field: 'status', message: 'Invalid status value' });
-    }
+    if (!status) errors.push('Status is required');
+    else if (!isValidQueueStatus(status)) errors.push('Invalid status value');
 
     if (errors.length > 0) return sendValidationError(res, errors);
 
     // Get queue entry
-    const [queueCheck] = await pool.query('SELECT * FROM queueEntries WHERE id = ?', [queueId]);
-    if (queueCheck.length === 0) return sendError(res, 'Queue entry not found', 404);
+    const { data: queueEntries } = await supabaseQuery('GET', `/queue_entries?id=eq.${queueId}`);
+    if (!Array.isArray(queueEntries) || queueEntries.length === 0) {
+      return sendError(res, 'Queue entry not found', 404);
+    }
 
-    const queueEntry = queueCheck[0];
+    const queueEntry = queueEntries[0];
 
     // Access control: only doctor or admin can update queue
-    if (userRole === 'doctor' && queueEntry.doctorId !== userId) {
+    if (userRole === 'doctor' && queueEntry.doctor_id !== userId) {
       return sendError(res, 'Unauthorized to update this queue', 403);
     }
 
-    // Update status
-    const updateFields = ['status = ?'];
-    const updateValues = [status];
-
-    if (status === 'in-progress') {
-      // Mark when consultation started
-      updateFields.push('startedAt = NOW()');
+    // Build update data
+    const updateData = { status };
+    if (status === 'in-service') {
+      updateData.served_at = new Date().toISOString();
     } else if (status === 'completed') {
-      updateFields.push('completedAt = NOW()');
-      // Calculate wait time
-      updateFields.push('estimatedWaitTime = TIMESTAMPDIFF(MINUTE, arrivedAt, NOW())');
+      updateData.served_at = new Date().toISOString();
     }
 
     if (notes) {
-      updateFields.push('notes = ?');
-      updateValues.push(sanitizeInput(notes));
+      updateData.notes = sanitizeInput(notes);
     }
 
-    updateValues.push(queueId);
+    // Update queue entry
+    const { data: updated } = await supabaseQuery('PATCH', `/queue_entries?id=eq.${queueId}`, updateData);
 
-    await pool.query(
-      `UPDATE queueEntries SET ${updateFields.join(', ')} WHERE id = ?`,
-      updateValues
-    );
-
-    // Recalculate positions if completing
-    if (status === 'completed') {
-      await pool.query(
-        `UPDATE queueEntries 
-         SET position = (SELECT COUNT(*) FROM queueEntries q2 
-                        WHERE q2.doctorId = queueEntries.doctorId 
-                        AND q2.status IN ('waiting', 'in-progress') 
-                        AND q2.position < queueEntries.position)
-         WHERE doctorId = ? AND status IN (?, ?)`,
-        [queueEntry.doctorId, 'waiting', 'in-progress']
-      );
+    // Update corresponding appointment status if exists
+    if (queueEntry.appointment_id && status === 'completed') {
+      await supabaseQuery('PATCH', `/appointments?id=eq.${queueEntry.appointment_id}`, {
+        status: 'completed'
+      });
     }
 
-    // Fetch updated entry
-    const [updated] = await pool.query('SELECT * FROM queueEntries WHERE id = ?', [queueId]);
+    const result = Array.isArray(updated) ? updated[0] : updated;
 
     return sendSuccess(res, {
-      id: updated[0].id,
-      appointmentId: updated[0].appointmentId,
-      patientId: updated[0].patientId,
-      status: updated[0].status,
-      position: updated[0].position,
+      id: result.id,
+      appointmentId: result.appointment_id,
+      patientId: result.patient_id,
+      status: result.status,
+      position: result.position,
     }, 'Queue status updated');
   } catch (err) {
     console.error('Update queue status error:', err);
@@ -157,7 +151,7 @@ const updateQueueStatus = async (req, res) => {
   }
 };
 
-// ── PUT /api/queue/:queueId/complete ──────────────────────────────────────────
+// ── PATCH /api/queue/:queueId/complete ───────────────────────────────────────
 const completeQueue = async (req, res) => {
   try {
     const { queueId } = req.params;
@@ -168,41 +162,45 @@ const completeQueue = async (req, res) => {
     if (!isValidUUID(queueId)) return sendError(res, 'Invalid queue ID format', 400);
 
     // Get queue entry
-    const [queueCheck] = await pool.query('SELECT * FROM queueEntries WHERE id = ?', [queueId]);
-    if (queueCheck.length === 0) return sendError(res, 'Queue entry not found', 404);
+    const { data: queueEntries } = await supabaseQuery('GET', `/queue_entries?id=eq.${queueId}`);
+    if (!Array.isArray(queueEntries) || queueEntries.length === 0) {
+      return sendError(res, 'Queue entry not found', 404);
+    }
 
-    const queueEntry = queueCheck[0];
+    const queueEntry = queueEntries[0];
 
     // Access control: only doctor or admin can complete queue
-    if (userRole === 'doctor' && queueEntry.doctorId !== userId) {
+    if (userRole === 'doctor' && queueEntry.doctor_id !== userId) {
       return sendError(res, 'Unauthorized to complete this queue', 403);
     }
 
-    // Update status to completed and mark appointment as completed
-    await pool.query(
-      `UPDATE queueEntries 
-       SET status = ?, completedAt = NOW(), notes = ?
-       WHERE id = ?`,
-      ['completed', sanitizeInput(notes || null), queueId]
-    );
+    // Update queue entry status to completed
+    const updateData = {
+      status: 'completed',
+      served_at: new Date().toISOString(),
+    };
 
-    // Update corresponding appointment status
-    if (queueEntry.appointmentId) {
-      await pool.query(
-        `UPDATE appointments SET status = ?, updatedAt = NOW() WHERE id = ?`,
-        ['completed', queueEntry.appointmentId]
-      );
+    if (notes) {
+      updateData.notes = sanitizeInput(notes);
     }
 
-    // Fetch updated entry
-    const [updated] = await pool.query('SELECT * FROM queueEntries WHERE id = ?', [queueId]);
+    const { data: updated } = await supabaseQuery('PATCH', `/queue_entries?id=eq.${queueId}`, updateData);
+
+    // Update corresponding appointment status
+    if (queueEntry.appointment_id) {
+      await supabaseQuery('PATCH', `/appointments?id=eq.${queueEntry.appointment_id}`, {
+        status: 'completed'
+      });
+    }
+
+    const result = Array.isArray(updated) ? updated[0] : updated;
 
     return sendSuccess(res, {
-      id: updated[0].id,
-      appointmentId: updated[0].appointmentId,
-      patientId: updated[0].patientId,
-      status: updated[0].status,
-      completedAt: updated[0].completedAt,
+      id: result.id,
+      appointmentId: result.appointment_id,
+      patientId: result.patient_id,
+      status: result.status,
+      servedAt: result.served_at,
       duration,
     }, 'Appointment marked as completed');
   } catch (err) {

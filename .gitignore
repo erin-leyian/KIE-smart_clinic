@@ -4,6 +4,11 @@ Backend/.env
 Backend/node_modules
 Backend/dist
 Backend/tests
+Backend/setup-supabase.sh
+Backend/seed-admin.js
+Backend/seed-complete-data.js
+Backend/USERS_CREDENTIALS.md
+
 node_modules
 .env
 .env.local

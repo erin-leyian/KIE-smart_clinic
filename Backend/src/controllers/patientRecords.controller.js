@@ -1,4 +1,4 @@
-const pool = require('../db');
+const https = require('https');
 const {
   isValidUUID,
   generateUUID,
@@ -15,6 +15,41 @@ const {
   getPaginationParams,
   buildPaginationResponse,
 } = require('../utils/responseFormatter');
+
+// Helper function for Supabase REST API calls
+async function supabaseQuery(method, endpoint, body = null) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(`${process.env.SUPABASE_URL}/rest/v1${endpoint}`);
+    const headers = {
+      'Content-Type': 'application/json',
+      'apikey': process.env.SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+      'Prefer': 'return=representation',
+    };
+
+    const options = {
+      method,
+      headers,
+    };
+
+    const req = https.request(url, options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        try {
+          const parsed = data ? JSON.parse(data) : [];
+          resolve({ data: parsed, status: res.statusCode });
+        } catch (e) {
+          resolve({ data: null, status: res.statusCode });
+        }
+      });
+    });
+
+    req.on('error', reject);
+    if (body) req.write(JSON.stringify(body));
+    req.end();
+  });
+}
 
 // ── POST /api/patient-records ─────────────────────────────────────────────────
 const createPatientRecord = async (req, res) => {
@@ -54,12 +89,9 @@ const createPatientRecord = async (req, res) => {
     }
 
     // Check patient exists
-    const [patients] = await pool.query('SELECT id, firstName, lastName FROM users WHERE id = ? AND role = ?', [
-      patientId,
-      'patient',
-    ]);
+    const { data: patients, status: patientsStatus } = await supabaseQuery('GET', `/users?id=eq.${patientId}&role=eq.patient`);
 
-    if (patients.length === 0) {
+    if (patientsStatus !== 200 || !Array.isArray(patients) || patients.length === 0) {
       return sendError(res, 'Patient not found', 404);
     }
 
@@ -67,11 +99,8 @@ const createPatientRecord = async (req, res) => {
     const doctorId = req.user.id;
     if (req.user.role !== 'admin') {
       if (appointmentId) {
-        const [appointments] = await pool.query(
-          'SELECT doctorId FROM appointments WHERE id = ? AND patientId = ?',
-          [appointmentId, patientId]
-        );
-        if (appointments.length === 0 || appointments[0].doctorId !== doctorId) {
+        const { data: appointments, status: apptStatus } = await supabaseQuery('GET', `/appointments?id=eq.${appointmentId}&patient_id=eq.${patientId}&doctor_id=eq.${doctorId}`);
+        if (apptStatus !== 200 || !Array.isArray(appointments) || appointments.length === 0) {
           return sendError(res, 'Access denied - appointment not found or not your patient', 403);
         }
       } else if (req.user.role !== 'doctor') {
@@ -81,32 +110,39 @@ const createPatientRecord = async (req, res) => {
 
     // Create record
     const recordId = generateUUID();
+    const body = {
+      id: recordId,
+      patient_id: patientId,
+      doctor_id: doctorId,
+      appointment_id: appointmentId || null,
+      diagnosis: sanitizeInput(diagnosis),
+      treatment: sanitizeInput(treatment),
+      medication: medication ? sanitizeInput(medication) : null,
+      test_results: testResults ? sanitizeInput(testResults) : null,
+      notes: notes ? sanitizeInput(notes) : null,
+      follow_up_date: followUpDate || null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
 
-    await pool.query(
-      `INSERT INTO patientRecords (id, patientId, doctorId, appointmentId, diagnosis, treatment, medication, testResults, notes, followUpDate)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        recordId,
-        patientId,
-        doctorId,
-        appointmentId || null,
-        sanitizeInput(diagnosis),
-        sanitizeInput(treatment),
-        medication ? sanitizeInput(medication) : null,
-        testResults ? sanitizeInput(testResults) : null,
-        notes ? sanitizeInput(notes) : null,
-        followUpDate || null,
-      ]
-    );
+    const { data: createdRecords, status } = await supabaseQuery('POST', '/patient_records', body);
 
-    // Fetch created record
-    const [records] = await pool.query('SELECT * FROM patientRecords WHERE id = ?', [recordId]);
-    const record = records[0];
+    if (status !== 201 && status !== 200 || !Array.isArray(createdRecords) || createdRecords.length === 0) {
+      console.error('Patient record creation failed:', { status, createdRecords, body });
+      return sendError(res, 'Failed to create patient record', 500);
+    }
+
+    const record = createdRecords[0];
+    const patientInfo = { firstName: patients[0].first_name, lastName: patients[0].last_name };
+    
+    // Fetch doctor info from database
+    const { data: doctorData } = await supabaseQuery('GET', `/users?id=eq.${doctorId}`);
+    const doctorInfo = doctorData?.[0] ? { firstName: doctorData[0].first_name, lastName: doctorData[0].last_name } : { firstName: 'Dr.', lastName: '' };
 
     return sendSuccess(
       res,
       {
-        record: formatPatientRecordResponse(record, patients[0], { firstName: 'Dr. ', lastName: req.user.firstName + ' ' + req.user.lastName }),
+        record: formatPatientRecordResponse(record, patientInfo, doctorInfo),
       },
       'Patient record created successfully',
       201
@@ -123,18 +159,15 @@ const getAllPatientRecords = async (req, res) => {
     const { patientId, doctorId, fromDate, toDate, page = 1, limit = 10 } = req.query;
     const { offset } = getPaginationParams({ page, limit });
 
-    let query = 'SELECT pr.*, u1.firstName as patientFirstName, u1.lastName as patientLastName, u2.firstName as doctorFirstName, u2.lastName as doctorLastName FROM patientRecords pr JOIN users u1 ON pr.patientId = u1.id JOIN users u2 ON pr.doctorId = u2.id WHERE 1=1';
-    const params = [];
+    // Build filters
+    let endpoint = '/patient_records?';
+    const filters = [];
 
     // Apply role-based filtering
     if (req.user.role === 'patient') {
-      // Patients can only see their own records
-      query += ' AND pr.patientId = ?';
-      params.push(req.user.id);
+      filters.push(`patient_id=eq.${req.user.id}`);
     } else if (req.user.role === 'doctor') {
-      // Doctors can see records they created
-      query += ' AND pr.doctorId = ?';
-      params.push(req.user.id);
+      filters.push(`doctor_id=eq.${req.user.id}`);
     }
     // Admins can see all
 
@@ -143,52 +176,59 @@ const getAllPatientRecords = async (req, res) => {
       if (!isValidUUID(patientId)) {
         return sendError(res, 'Invalid patientId format', 400);
       }
-      query += ' AND pr.patientId = ?';
-      params.push(patientId);
+      filters.push(`patient_id=eq.${patientId}`);
     }
 
     if (doctorId) {
       if (!isValidUUID(doctorId)) {
         return sendError(res, 'Invalid doctorId format', 400);
       }
-      query += ' AND pr.doctorId = ?';
-      params.push(doctorId);
+      filters.push(`doctor_id=eq.${doctorId}`);
     }
 
     if (fromDate) {
       if (!isValidDate(fromDate)) {
         return sendError(res, 'Invalid fromDate format', 400);
       }
-      query += ' AND pr.createdAt >= ?';
-      params.push(fromDate);
+      filters.push(`created_at=gte.${fromDate}`);
     }
 
     if (toDate) {
       if (!isValidDate(toDate)) {
         return sendError(res, 'Invalid toDate format', 400);
       }
-      query += ' AND pr.createdAt <= ?';
-      params.push(toDate);
+      filters.push(`created_at=lte.${toDate}`);
+    }
+
+    // Add pagination and sorting
+    const fullEndpoint = endpoint + filters.join('&') + (filters.length > 0 ? '&' : '') + `order=created_at.desc&limit=${limit}&offset=${offset}`;
+
+    // Get paginated results
+    const { data: records, status } = await supabaseQuery('GET', fullEndpoint);
+
+    if (status !== 200 || !Array.isArray(records)) {
+      return sendError(res, 'Failed to fetch patient records', 500);
     }
 
     // Get total count
-    const countQuery = query.replace(/SELECT pr\.\*.*FROM/, 'SELECT COUNT(*) as total FROM');
-    const [countResult] = await pool.query(countQuery, params);
-    const total = countResult[0].total;
+    const countEndpoint = '/patient_records?select=count()&' + filters.join('&');
+    const { data: countData, status: countStatus } = await supabaseQuery('GET', countEndpoint);
+    const total = countStatus === 200 ? parseInt(countData[0]?.count || 0) : 0;
 
-    // Get paginated results
-    query += ' ORDER BY pr.createdAt DESC LIMIT ? OFFSET ?';
-    const [records] = await pool.query(query, [...params, parseInt(limit), offset]);
+    // Fetch user data for each record
+    const enrichedRecords = await Promise.all(records.map(async (record) => {
+      const { data: patientData } = await supabaseQuery('GET', `/users?id=eq.${record.patient_id}`);
+      const { data: doctorData } = await supabaseQuery('GET', `/users?id=eq.${record.doctor_id}`);
 
-    const formattedRecords = records.map(record => {
-      const patient = { firstName: record.patientFirstName, lastName: record.patientLastName };
-      const doctor = { firstName: record.doctorFirstName, lastName: record.doctorLastName };
+      const patient = patientData?.[0] ? { firstName: patientData[0].first_name, lastName: patientData[0].last_name } : {};
+      const doctor = doctorData?.[0] ? { firstName: doctorData[0].first_name, lastName: doctorData[0].last_name } : {};
+
       return formatPatientRecordResponse(record, patient, doctor);
-    });
+    }));
 
     return sendSuccess(
       res,
-      buildPaginationResponse(formattedRecords, total, parseInt(page), parseInt(limit))
+      buildPaginationResponse(enrichedRecords, total, parseInt(page), parseInt(limit))
     );
   } catch (error) {
     console.error('Get patient records error:', error);
@@ -205,16 +245,9 @@ const getPatientRecordById = async (req, res) => {
       return sendError(res, 'Invalid record ID format', 400);
     }
 
-    const [records] = await pool.query(
-      `SELECT pr.*, u1.firstName as patientFirstName, u1.lastName as patientLastName, u2.firstName as doctorFirstName, u2.lastName as doctorLastName
-       FROM patientRecords pr
-       JOIN users u1 ON pr.patientId = u1.id
-       JOIN users u2 ON pr.doctorId = u2.id
-       WHERE pr.id = ?`,
-      [id]
-    );
+    const { data: records, status } = await supabaseQuery('GET', `/patient_records?id=eq.${id}`);
 
-    if (records.length === 0) {
+    if (status !== 200 || !Array.isArray(records) || records.length === 0) {
       return sendError(res, 'Patient record not found', 404);
     }
 
@@ -223,14 +256,18 @@ const getPatientRecordById = async (req, res) => {
     // Check authorization
     if (
       req.user.role !== 'admin' &&
-      req.user.id !== record.patientId &&
-      req.user.id !== record.doctorId
+      req.user.id !== record.patient_id &&
+      req.user.id !== record.doctor_id
     ) {
       return sendError(res, 'Access denied', 403);
     }
 
-    const patient = { firstName: record.patientFirstName, lastName: record.patientLastName };
-    const doctor = { firstName: record.doctorFirstName, lastName: record.doctorLastName };
+    // Fetch user data for response
+    const { data: patientData } = await supabaseQuery('GET', `/users?id=eq.${record.patient_id}`);
+    const { data: doctorData } = await supabaseQuery('GET', `/users?id=eq.${record.doctor_id}`);
+
+    const patient = patientData?.[0] ? { firstName: patientData[0].first_name, lastName: patientData[0].last_name } : {};
+    const doctor = doctorData?.[0] ? { firstName: doctorData[0].first_name, lastName: doctorData[0].last_name } : {};
 
     return sendSuccess(res, { record: formatPatientRecordResponse(record, patient, doctor) });
   } catch (error) {
@@ -250,19 +287,16 @@ const updatePatientRecord = async (req, res) => {
     }
 
     // Check record exists and user is authorized
-    const [records] = await pool.query(
-      'SELECT * FROM patientRecords WHERE id = ?',
-      [id]
-    );
+    const { data: records, status } = await supabaseQuery('GET', `/patient_records?id=eq.${id}`);
 
-    if (records.length === 0) {
+    if (status !== 200 || !Array.isArray(records) || records.length === 0) {
       return sendError(res, 'Patient record not found', 404);
     }
 
     const record = records[0];
 
     // Only doctor who created it or admin can update
-    if (req.user.role !== 'admin' && req.user.id !== record.doctorId) {
+    if (req.user.role !== 'admin' && req.user.id !== record.doctor_id) {
       return sendError(res, 'Access denied', 403);
     }
 
@@ -278,58 +312,49 @@ const updatePatientRecord = async (req, res) => {
       return sendValidationError(res, errors);
     }
 
-    // Build update query
-    const updates = [];
-    const params = [];
+    // Build update body
+    const updateBody = {};
 
     if (diagnosis !== undefined) {
-      updates.push('diagnosis = ?');
-      params.push(sanitizeInput(diagnosis));
+      updateBody.diagnosis = sanitizeInput(diagnosis);
     }
     if (treatment !== undefined) {
-      updates.push('treatment = ?');
-      params.push(sanitizeInput(treatment));
+      updateBody.treatment = sanitizeInput(treatment);
     }
     if (medication !== undefined) {
-      updates.push('medication = ?');
-      params.push(medication ? sanitizeInput(medication) : null);
+      updateBody.medication = medication ? sanitizeInput(medication) : null;
     }
     if (testResults !== undefined) {
-      updates.push('testResults = ?');
-      params.push(testResults ? sanitizeInput(testResults) : null);
+      updateBody.test_results = testResults ? sanitizeInput(testResults) : null;
     }
     if (notes !== undefined) {
-      updates.push('notes = ?');
-      params.push(notes ? sanitizeInput(notes) : null);
+      updateBody.notes = notes ? sanitizeInput(notes) : null;
     }
     if (followUpDate !== undefined) {
-      updates.push('followUpDate = ?');
-      params.push(followUpDate || null);
+      updateBody.follow_up_date = followUpDate || null;
     }
 
-    if (updates.length === 0) {
+    if (Object.keys(updateBody).length === 0) {
       return sendError(res, 'No fields to update', 400);
     }
 
-    updates.push('updatedAt = CURRENT_TIMESTAMP');
-    const query = `UPDATE patientRecords SET ${updates.join(', ')} WHERE id = ?`;
-    params.push(id);
+    updateBody.updated_at = new Date().toISOString();
 
-    await pool.query(query, params);
+    // Update record
+    const { data: updatedRecords, status: updateStatus } = await supabaseQuery('PATCH', `/patient_records?id=eq.${id}`, updateBody);
 
-    // Fetch updated record
-    const [updatedRecords] = await pool.query(
-      `SELECT pr.*, u1.firstName as patientFirstName, u1.lastName as patientLastName, u2.firstName as doctorFirstName, u2.lastName as doctorLastName
-       FROM patientRecords pr
-       JOIN users u1 ON pr.patientId = u1.id
-       JOIN users u2 ON pr.doctorId = u2.id
-       WHERE pr.id = ?`,
-      [id]
-    );
+    if (updateStatus !== 200 || !Array.isArray(updatedRecords) || updatedRecords.length === 0) {
+      return sendError(res, 'Failed to update patient record', 500);
+    }
 
     const updatedRecord = updatedRecords[0];
-    const patient = { firstName: updatedRecord.patientFirstName, lastName: updatedRecord.patientLastName };
-    const doctor = { firstName: updatedRecord.doctorFirstName, lastName: updatedRecord.doctorLastName };
+
+    // Fetch user data for response
+    const { data: patientData } = await supabaseQuery('GET', `/users?id=eq.${updatedRecord.patient_id}`);
+    const { data: doctorData } = await supabaseQuery('GET', `/users?id=eq.${updatedRecord.doctor_id}`);
+
+    const patient = patientData?.[0] ? { firstName: patientData[0].first_name, lastName: patientData[0].last_name } : {};
+    const doctor = doctorData?.[0] ? { firstName: doctorData[0].first_name, lastName: doctorData[0].last_name } : {};
 
     return sendSuccess(
       res,
@@ -362,14 +387,18 @@ const deletePatientRecord = async (req, res) => {
     }
 
     // Check record exists
-    const [records] = await pool.query('SELECT id FROM patientRecords WHERE id = ?', [id]);
+    const { data: records, status } = await supabaseQuery('GET', `/patient_records?id=eq.${id}`);
 
-    if (records.length === 0) {
+    if (status !== 200 || !Array.isArray(records) || records.length === 0) {
       return sendError(res, 'Patient record not found', 404);
     }
 
     // Delete record
-    await pool.query('DELETE FROM patientRecords WHERE id = ?', [id]);
+    const { status: deleteStatus } = await supabaseQuery('DELETE', `/patient_records?id=eq.${id}`);
+
+    if (deleteStatus !== 204) {
+      return sendError(res, 'Failed to delete patient record', 500);
+    }
 
     return sendSuccess(res, null, 'Patient record deleted successfully');
   } catch (error) {

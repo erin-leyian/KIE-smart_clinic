@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import Modal from '../../components/Modal';
-import mockData from '../../data/mockData.json';
+import { appointmentsAPI } from '../../services/api';
 import { getIconComponent, getSpecialtyBgColor } from '../../utils/medicalIcons';
 import { formatErrorMessage } from '../../utils/errorHandler';
 import { notifyAppointmentConfirmed, notifyAppointmentCancelled, notifyAppointmentRescheduled } from '../../utils/notificationManager';
@@ -40,23 +40,21 @@ export default function DoctorAppointments() {
         if (storedUser) {
           const user = JSON.parse(storedUser);
           setCurrentUser(user);
-          setUserRole(user.role || 'patient');
+          setUserRole(user.role || 'doctor');
         }
 
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 600));
+        // Fetch appointments from real API for this doctor
+        const response = await appointmentsAPI.getAllAppointments({
+          doctorId: currentUser?.id,
+          status: filterStatus !== 'All' ? filterStatus : undefined
+        });
 
-        // Validate data
-        if (!mockData.appointments || !Array.isArray(mockData.appointments)) {
-          throw new Error('No appointments found. Please try again.');
-        }
-
-        setAppointments(mockData.appointments);
+        setAppointments(response.data || []);
         
         // Group treatment history by patient
         const history = {};
-        mockData.appointments
-          .filter(apt => apt.status === 'Completed')
+        (response.data || [])
+          .filter(apt => apt.status === 'completed')
           .forEach(apt => {
             if (!history[apt.patientId]) {
               history[apt.patientId] = [];
@@ -72,8 +70,10 @@ export default function DoctorAppointments() {
       }
     };
 
-    loadAppointments();
-  }, []);
+    if (currentUser?.id) {
+      loadAppointments();
+    }
+  }, [currentUser?.id, filterStatus]);
 
   // Retry loading appointments
   const handleRetryLoadData = async () => {
@@ -81,13 +81,12 @@ export default function DoctorAppointments() {
       setLoading(true);
       setError('');
 
-      await new Promise(resolve => setTimeout(resolve, 600));
+      const response = await appointmentsAPI.getAllAppointments({
+        doctorId: currentUser?.id,
+        status: filterStatus !== 'All' ? filterStatus : undefined
+      });
 
-      if (!mockData.appointments || !Array.isArray(mockData.appointments)) {
-        throw new Error('No appointments found. Please try again.');
-      }
-
-      setAppointments(mockData.appointments);
+      setAppointments(response.data || []);
       setLoading(false);
     } catch (err) {
       const errorMessage = formatErrorMessage(err);

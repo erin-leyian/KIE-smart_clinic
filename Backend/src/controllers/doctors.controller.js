@@ -1,9 +1,11 @@
-const pool = require('../db');
+const bcrypt = require('bcryptjs');
+const https = require('https');
 const {
   isValidUUID,
   generateUUID,
   sanitizeInput,
-  isMinLength,
+  isValidPassword,
+  isValidEmail,
 } = require('../utils/validation');
 const {
   sendSuccess,
@@ -14,51 +16,94 @@ const {
   buildPaginationResponse,
 } = require('../utils/responseFormatter');
 
+// Supabase REST API helper - same as auth controller
+async function supabaseQuery(method, endpoint, body = null) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(`${process.env.SUPABASE_URL}/rest/v1${endpoint}`);
+    const headers = {
+      'Content-Type': 'application/json',
+      'apikey': process.env.SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+      'Prefer': 'return=representation',
+    };
+
+    const req = https.request(url, { method, headers }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const result = JSON.parse(data);
+          resolve({ data: result, status: res.statusCode, error: null });
+        } catch (e) {
+          resolve({ data: null, status: res.statusCode, error: data });
+        }
+      });
+    });
+
+    req.on('error', reject);
+    if (body) req.write(JSON.stringify(body));
+    req.end();
+  });
+}
+
 // ── GET /api/doctors ──────────────────────────────────────────────────────────
 const getAllDoctors = async (req, res) => {
   try {
     const { specialization, search, page = 1, limit = 10 } = req.query;
     const { offset } = getPaginationParams({ page, limit });
 
-    let query = `
-      SELECT u.*, d.specialization, d.qualifications, d.yearsOfExperience,
-             d.consultationFee, d.consultationDuration, d.consultationEnabled,
-             d.rating, d.totalConsultations
-      FROM users u
-      LEFT JOIN doctorSpecializations d ON u.id = d.doctorId
-      WHERE u.role = 'doctor'
-    `;
-    const params = [];
+    // Build REST API query for doctors
+    let endpoint = `/users?role=eq.doctor&limit=${limit}&offset=${offset}&order=created_at.desc`;
 
-    // Apply filters
-    if (specialization) {
-      query += ' AND d.specialization = ?';
-      params.push(sanitizeInput(specialization));
-    }
-
+    // Add search filter if provided
     if (search) {
-      query += ' AND (u.firstName LIKE ? OR u.lastName LIKE ? OR u.email LIKE ?)';
-      const searchPattern = `%${sanitizeInput(search)}%`;
-      params.push(searchPattern, searchPattern, searchPattern);
+      const searchTerm = sanitizeInput(search).toLowerCase();
+      endpoint += `&or=(first_name.ilike.*${searchTerm}*,last_name.ilike.*${searchTerm}*,email.ilike.*${searchTerm}*)`;
     }
 
-    // Get total count
-    const countQuery = query.replace(
-      /SELECT u\.\*, d\..*FROM/,
-      'SELECT COUNT(DISTINCT u.id) as total FROM'
-    );
-    const [countResult] = await pool.query(countQuery, params);
-    const total = countResult[0].total;
+    // Get doctors
+    const { data: doctors, status } = await supabaseQuery('GET', endpoint);
 
-    // Get paginated results
-    query += ' ORDER BY u.createdAt DESC LIMIT ? OFFSET ?';
-    const [doctors] = await pool.query(query, [...params, parseInt(limit), offset]);
+    if (status !== 200) {
+      throw new Error(`Failed to fetch doctors: ${JSON.stringify(doctors)}`);
+    }
 
-    const formattedDoctors = doctors.map(doctor => formatDoctorResponse(doctor, doctor));
+    if (!Array.isArray(doctors)) {
+      return sendError(res, 'Failed to fetch doctors', 500);
+    }
+
+    // Get doctor IDs for specialization lookup
+    const doctorIds = doctors.map(d => d.id);
+
+    // Fetch doctor specializations
+    const specs = {};
+    if (doctorIds.length > 0) {
+      const specEndpoint = `/doctor_specializations?doctor_id=in.(${doctorIds.join(',')})`;
+      const { data: specializations, status: specStatus } = await supabaseQuery('GET', specEndpoint);
+      
+      if (specStatus === 200 && Array.isArray(specializations)) {
+        specializations.forEach(spec => {
+          specs[spec.doctor_id] = spec;
+        });
+      }
+    }
+
+    // Format doctors with specialization data
+    let formattedDoctors = doctors.map(doctor => {
+      const spec = specs[doctor.id];
+      return formatDoctorResponse(doctor, spec);
+    });
+
+    // Filter by specialization if provided
+    if (specialization) {
+      formattedDoctors = formattedDoctors.filter(doc =>
+        doc.specialization?.toLowerCase() === sanitizeInput(specialization).toLowerCase()
+      );
+    }
 
     return sendSuccess(
       res,
-      buildPaginationResponse(formattedDoctors, total, parseInt(page), parseInt(limit))
+      buildPaginationResponse(formattedDoctors, formattedDoctors.length, parseInt(page), parseInt(limit))
     );
   } catch (error) {
     console.error('Get all doctors error:', error);
@@ -76,31 +121,25 @@ const getDoctorById = async (req, res) => {
       return sendError(res, 'Invalid doctor ID format', 400);
     }
 
-    // Get doctor with specialization
-    const [doctors] = await pool.query(
-      `SELECT u.*, d.specialization, d.qualifications, d.yearsOfExperience,
-              d.consultationFee, d.consultationDuration, d.consultationEnabled,
-              d.rating, d.totalConsultations
-       FROM users u
-       LEFT JOIN doctorSpecializations d ON u.id = d.doctorId
-       WHERE u.id = ? AND u.role = 'doctor'`,
-      [id]
-    );
+    // Get doctor user record
+    const { data: doctors, status } = await supabaseQuery('GET', `/users?id=eq.${id}&role=eq.doctor`);
 
-    if (doctors.length === 0) {
+    if (status !== 200 || !Array.isArray(doctors) || doctors.length === 0) {
       return sendError(res, 'Doctor not found', 404);
     }
 
     const doctor = doctors[0];
 
-    // Get available hours
-    const [hours] = await pool.query(
-      `SELECT day, startTime, endTime FROM availableHours WHERE doctorId = ? ORDER BY FIELD(day, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')`,
-      [id]
-    );
+    // Get doctor specialization
+    const { data: specs, status: specStatus } = await supabaseQuery('GET', `/doctor_specializations?doctor_id=eq.${id}`);
+    const specialization = specStatus === 200 && Array.isArray(specs) ? specs[0] : null;
 
-    const doctorData = formatDoctorResponse(doctor, doctor);
-    doctorData.availableHours = hours;
+    // Get available hours
+    const { data: hours, status: hoursStatus } = await supabaseQuery('GET', `/available_hours?doctor_id=eq.${id}&order=day.asc`);
+    const availableHours = hoursStatus === 200 && Array.isArray(hours) ? hours : [];
+
+    const doctorData = formatDoctorResponse(doctor, specialization);
+    doctorData.availableHours = availableHours;
 
     return sendSuccess(res, { doctor: doctorData });
   } catch (error) {
@@ -129,12 +168,10 @@ const createDoctor = async (req, res) => {
 
     // Validation
     const errors = [];
-
     if (!firstName || !firstName.trim()) errors.push('firstName is required');
     if (!lastName || !lastName.trim()) errors.push('lastName is required');
-    if (!email) errors.push('email is required');
-    if (!password) errors.push('password is required');
-    if (!password || password.length < 8) errors.push('password must be at least 8 characters');
+    if (!email || !isValidEmail(email)) errors.push('email must be a valid email address');
+    if (!password || !isValidPassword(password)) errors.push('password must be at least 8 characters');
     if (!specialization || !specialization.trim()) errors.push('specialization is required');
     if (!qualifications || !qualifications.trim()) errors.push('qualifications is required');
     if (consultationFee !== undefined && (isNaN(consultationFee) || consultationFee < 0)) {
@@ -149,60 +186,67 @@ const createDoctor = async (req, res) => {
     }
 
     // Check if email already exists
-    const [existingUser] = await pool.query('SELECT id FROM users WHERE email = ?', [
-      email.toLowerCase(),
-    ]);
-
-    if (existingUser.length > 0) {
+    const { data: existing } = await supabaseQuery('GET', `/users?email=eq.${encodeURIComponent(email.toLowerCase())}`);
+    if (Array.isArray(existing) && existing.length > 0) {
       return sendError(res, 'Email already exists', 409);
     }
 
-    // Create doctor user and specialization
-    const userId = generateUUID();
-    const specId = generateUUID();
-
-    const bcrypt = require('bcryptjs');
+    // Hash password and prepare user data
     const hashedPassword = await bcrypt.hash(password, 10);
+    const userId = generateUUID();
 
-    // Insert user
-    await pool.query(
-      `INSERT INTO users (id, firstName, lastName, email, password, role, phone)
-       VALUES (?, ?, ?, ?, ?, 'doctor', ?)`,
-      [userId, sanitizeInput(firstName), sanitizeInput(lastName), email.toLowerCase(), hashedPassword, phone || null]
-    );
+    // Create doctor user
+    const { data: createdUsers, status: userStatus } = await supabaseQuery('POST', '/users', {
+      id: userId,
+      first_name: sanitizeInput(firstName),
+      last_name: sanitizeInput(lastName),
+      email: email.toLowerCase(),
+      password: hashedPassword,
+      role: 'doctor',
+      phone: phone || null,
+    });
 
-    // Insert doctor specialization
-    await pool.query(
-      `INSERT INTO doctorSpecializations (id, doctorId, specialization, qualifications, yearsOfExperience, consultationFee, consultationDuration, consultationEnabled)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [specId, userId, sanitizeInput(specialization), sanitizeInput(qualifications), yearsOfExperience, consultationFee || null, consultationDuration, consultationEnabled ? 1 : 0]
-    );
+    if (userStatus !== 201 && userStatus !== 200) {
+      throw new Error(`Failed to create doctor user: ${JSON.stringify(createdUsers)}`);
+    }
+
+    // Create doctor specialization
+    const specId = generateUUID();
+    const { data: createdSpecs, status: specStatus } = await supabaseQuery('POST', '/doctor_specializations', {
+      id: specId,
+      doctor_id: userId,
+      specialization: sanitizeInput(specialization),
+      qualifications: sanitizeInput(qualifications),
+      years_of_experience: yearsOfExperience,
+      consultation_fee: consultationFee || null,
+      consultation_duration: consultationDuration,
+      consultation_enabled: consultationEnabled,
+    });
+
+    if (specStatus !== 201 && specStatus !== 200) {
+      throw new Error(`Failed to create doctor specialization: ${JSON.stringify(createdSpecs)}`);
+    }
 
     // Insert available hours if provided
     if (availableHours && Array.isArray(availableHours) && availableHours.length > 0) {
       for (const hour of availableHours) {
-        const hourId = generateUUID();
-        await pool.query(
-          `INSERT INTO availableHours (id, doctorId, day, startTime, endTime)
-           VALUES (?, ?, ?, ?, ?)`,
-          [hourId, userId, sanitizeInput(hour.day), hour.startTime, hour.endTime]
-        );
+        await supabaseQuery('POST', '/available_hours', {
+          id: generateUUID(),
+          doctor_id: userId,
+          day: sanitizeInput(hour.day),
+          start_time: hour.startTime,
+          end_time: hour.endTime,
+        });
       }
     }
 
-    // Fetch created doctor
-    const [doctors] = await pool.query(
-      `SELECT u.*, d.specialization, d.qualifications, d.yearsOfExperience,
-              d.consultationFee, d.consultationDuration, d.consultationEnabled
-       FROM users u
-       LEFT JOIN doctorSpecializations d ON u.id = d.doctorId
-       WHERE u.id = ?`,
-      [userId]
-    );
+    // Format response
+    const user = Array.isArray(createdUsers) ? createdUsers[0] : createdUsers;
+    const spec = Array.isArray(createdSpecs) ? createdSpecs[0] : createdSpecs;
 
     return sendSuccess(
       res,
-      { doctor: formatDoctorResponse(doctors[0], doctors[0]) },
+      { doctor: formatDoctorResponse(user, spec) },
       'Doctor created successfully',
       201
     );
@@ -212,7 +256,7 @@ const createDoctor = async (req, res) => {
   }
 };
 
-// ── PUT /api/doctors/:id ──────────────────────────────────────────────────────
+// ── PATCH /api/doctors/:id ───────────────────────────────────────────────────
 const updateDoctor = async (req, res) => {
   try {
     const { id } = req.params;
@@ -233,17 +277,13 @@ const updateDoctor = async (req, res) => {
     }
 
     // Check authorization
-    if (req.user.id !== id && req.user.role !== 'admin') {
+    if (req.user && req.user.id !== id && req.user.role !== 'admin') {
       return sendError(res, 'Access denied', 403);
     }
 
     // Check doctor exists
-    const [doctors] = await pool.query(
-      `SELECT u.* FROM users u WHERE u.id = ? AND u.role = 'doctor'`,
-      [id]
-    );
-
-    if (doctors.length === 0) {
+    const { data: doctors, status: docStatus } = await supabaseQuery('GET', `/users?id=eq.${id}&role=eq.doctor`);
+    if (docStatus !== 200 || !Array.isArray(doctors) || doctors.length === 0) {
       return sendError(res, 'Doctor not found', 404);
     }
 
@@ -260,96 +300,60 @@ const updateDoctor = async (req, res) => {
       return sendValidationError(res, errors);
     }
 
-    // Update doctor specialization
+    // Update user phone if provided
+    if (phone !== undefined) {
+      await supabaseQuery('PATCH', `/users?id=eq.${id}`, {
+        phone: phone || null,
+      });
+    }
+
+    // Update specialization if any fields provided
     if (
-      phone ||
-      specialization ||
-      qualifications ||
+      specialization !== undefined ||
+      qualifications !== undefined ||
       yearsOfExperience !== undefined ||
       consultationFee !== undefined ||
       consultationDuration !== undefined ||
       consultationEnabled !== undefined
     ) {
-      const updates = [];
-      const params = [];
+      const updateData = {};
+      if (specialization !== undefined) updateData.specialization = sanitizeInput(specialization);
+      if (qualifications !== undefined) updateData.qualifications = sanitizeInput(qualifications);
+      if (yearsOfExperience !== undefined) updateData.years_of_experience = yearsOfExperience;
+      if (consultationFee !== undefined) updateData.consultation_fee = consultationFee;
+      if (consultationDuration !== undefined) updateData.consultation_duration = consultationDuration;
+      if (consultationEnabled !== undefined) updateData.consultation_enabled = consultationEnabled;
 
-      if (phone !== undefined) {
-        updates.push('u.phone = ?');
-        params.push(phone);
-      }
-
-      // Update user phone
-      if (phone !== undefined) {
-        await pool.query('UPDATE users SET phone = ? WHERE id = ?', [phone, id]);
-      }
-
-      // Update specialization
-      const updates2 = [];
-      const params2 = [];
-
-      if (specialization !== undefined) {
-        updates2.push('specialization = ?');
-        params2.push(sanitizeInput(specialization));
-      }
-      if (qualifications !== undefined) {
-        updates2.push('qualifications = ?');
-        params2.push(sanitizeInput(qualifications));
-      }
-      if (yearsOfExperience !== undefined) {
-        updates2.push('yearsOfExperience = ?');
-        params2.push(yearsOfExperience);
-      }
-      if (consultationFee !== undefined) {
-        updates2.push('consultationFee = ?');
-        params2.push(consultationFee);
-      }
-      if (consultationDuration !== undefined) {
-        updates2.push('consultationDuration = ?');
-        params2.push(consultationDuration);
-      }
-      if (consultationEnabled !== undefined) {
-        updates2.push('consultationEnabled = ?');
-        params2.push(consultationEnabled ? 1 : 0);
-      }
-
-      if (updates2.length > 0) {
-        updates2.push('updatedAt = CURRENT_TIMESTAMP');
-        const query = `UPDATE doctorSpecializations SET ${updates2.join(', ')} WHERE doctorId = ?`;
-        params2.push(id);
-        await pool.query(query, params2);
-      }
+      await supabaseQuery('PATCH', `/doctor_specializations?doctor_id=eq.${id}`, updateData);
     }
 
-    // Update available hours
+    // Update available hours if provided
     if (availableHours && Array.isArray(availableHours)) {
       // Delete existing hours
-      await pool.query('DELETE FROM availableHours WHERE doctorId = ?', [id]);
+      await supabaseQuery('DELETE', `/available_hours?doctor_id=eq.${id}`);
 
       // Insert new hours
       for (const hour of availableHours) {
-        const hourId = generateUUID();
-        await pool.query(
-          `INSERT INTO availableHours (id, doctorId, day, startTime, endTime)
-           VALUES (?, ?, ?, ?, ?)`,
-          [hourId, id, sanitizeInput(hour.day), hour.startTime, hour.endTime]
-        );
+        await supabaseQuery('POST', '/available_hours', {
+          id: generateUUID(),
+          doctor_id: id,
+          day: sanitizeInput(hour.day),
+          start_time: hour.startTime,
+          end_time: hour.endTime,
+        });
       }
     }
 
     // Fetch updated doctor
-    const [updatedDoctors] = await pool.query(
-      `SELECT u.*, d.specialization, d.qualifications, d.yearsOfExperience,
-              d.consultationFee, d.consultationDuration, d.consultationEnabled,
-              d.rating, d.totalConsultations
-       FROM users u
-       LEFT JOIN doctorSpecializations d ON u.id = d.doctorId
-       WHERE u.id = ?`,
-      [id]
-    );
+    const { data: updatedDoctors } = await supabaseQuery('GET', `/users?id=eq.${id}`);
+    const { data: updatedSpecs } = await supabaseQuery('GET', `/doctor_specializations?doctor_id=eq.${id}`);
+
+    const user = Array.isArray(updatedDoctors) ? updatedDoctors[0] : updatedDoctors;
+    const spec = Array.isArray(updatedSpecs) ? updatedSpecs[0] : null;
 
     return sendSuccess(
       res,
-      { doctor: formatDoctorResponse(updatedDoctors[0], updatedDoctors[0]) },
+      { doctor: formatDoctorResponse(user, spec) },
       'Doctor profile updated successfully'
     );
   } catch (error) {
@@ -370,7 +374,7 @@ const deleteDoctor = async (req, res) => {
     }
 
     // Check authorization - admin only
-    if (req.user.role !== 'admin') {
+    if (req.user && req.user.role !== 'admin') {
       return sendError(res, 'Access denied', 403);
     }
 
@@ -380,17 +384,17 @@ const deleteDoctor = async (req, res) => {
     }
 
     // Check doctor exists
-    const [doctors] = await pool.query(
-      'SELECT id FROM users WHERE id = ? AND role = ?',
-      [id, 'doctor']
-    );
-
-    if (doctors.length === 0) {
+    const { data: doctors, status } = await supabaseQuery('GET', `/users?id=eq.${id}&role=eq.doctor`);
+    if (status !== 200 || !Array.isArray(doctors) || doctors.length === 0) {
       return sendError(res, 'Doctor not found', 404);
     }
 
     // Delete doctor (cascade will handle specializations and hours)
-    await pool.query('DELETE FROM users WHERE id = ?', [id]);
+    const { status: delStatus } = await supabaseQuery('DELETE', `/users?id=eq.${id}`);
+
+    if (delStatus !== 204 && delStatus !== 200) {
+      throw new Error('Failed to delete doctor');
+    }
 
     return sendSuccess(res, null, 'Doctor deleted successfully');
   } catch (error) {

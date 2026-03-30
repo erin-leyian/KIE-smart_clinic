@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import Modal from "../../components/Modal";
 import DashboardLayout from "../../components/Layout/DashboardLayout";
 import { Edit2, FileText, AlertCircle, RotateCcw, Save, Calendar, Mail, Phone, MapPin, Award, Clock, User, Shield } from "lucide-react";
-import mockData from "../../data/mockData.json";
+import { authAPI, appointmentsAPI } from "../../services/api";
 import { formatErrorMessage } from "../../utils/errorHandler";
 
 export default function Profile() {
@@ -30,7 +30,6 @@ export default function Profile() {
       try {
         setLoading(true);
         setError("");
-        await new Promise(resolve => setTimeout(resolve, 600));
 
         const storedUser = localStorage.getItem("user");
         if (!storedUser) throw new Error("User profile not found. Please log in again.");
@@ -38,16 +37,29 @@ export default function Profile() {
         const currentUser = JSON.parse(storedUser);
         setUserRole(currentUser.role || "patient");
 
-        const userData = mockData.users.find(u => u.id === currentUser.id || u.email === currentUser.email);
+        // Fetch user details from API
+        const userResponse = await authAPI.getUserById(currentUser.id);
+        const userData = userResponse.user || currentUser;
+        
         if (!userData) throw new Error("User profile not found. Please try again.");
-        if (!mockData.appointments || !Array.isArray(mockData.appointments)) throw new Error("Consultation history not found.");
 
-        const userAppointments = mockData.appointments.filter(apt => apt.patientName === userData.name || apt.patientId === userData.id);
+        // Fetch user's appointments (API now returns { data: [...] })
+        const appointmentsResponse = await appointmentsAPI.getAllAppointments({
+          patientId: currentUser.id
+        });
+        const userAppointments = appointmentsResponse.data || [];
 
         setUser(userData);
         setHistory(userAppointments);
-        setEditPersonal({ dob: userData.dob, age: userData.age });
-        setEditContact({ phone: userData.phone, email: userData.email, location: userData.location });
+        setEditPersonal({ 
+          dob: userData.dateOfBirth || userData.dob || "", 
+          age: userData.age || "" 
+        });
+        setEditContact({ 
+          phone: userData.phone || "", 
+          email: userData.email || "", 
+          location: userData.city || userData.location || "" 
+        });
         setLoading(false);
       } catch (err) {
         setError(formatErrorMessage(err));
@@ -61,17 +73,23 @@ export default function Profile() {
     try {
       setLoading(true);
       setError("");
-      await new Promise(resolve => setTimeout(resolve, 600));
 
       const storedUser = localStorage.getItem("user");
       if (!storedUser) throw new Error("User profile not found. Please log in again.");
 
       const currentUser = JSON.parse(storedUser);
-      const userData = mockData.users.find(u => u.id === currentUser.id || u.email === currentUser.email);
+      
+      // Fetch user details from API
+      const userResponse = await authAPI.getUserById(currentUser.id);
+      const userData = userResponse.user || currentUser;
+      
       if (!userData) throw new Error("User profile not found. Please try again.");
-      if (!mockData.appointments || !Array.isArray(mockData.appointments)) throw new Error("Consultation history not found.");
 
-      const userAppointments = mockData.appointments.filter(apt => apt.patientName === userData.name || apt.patientId === userData.id);
+      // Fetch user's appointments (API now returns { data: [...] })
+      const appointmentsResponse = await appointmentsAPI.getAllAppointments({
+        patientId: currentUser.id
+      });
+      const userAppointments = appointmentsResponse.data || [];
 
       setUser(userData);
       setHistory(userAppointments);
@@ -82,14 +100,51 @@ export default function Profile() {
     }
   };
 
-  const handleSavePersonal = () => {
-    setUser(prev => ({ ...prev, dob: editPersonal.dob, age: editPersonal.age }));
-    setShowEditPersonal(false);
+  // Save personal info (Date of birth, age) - with API call
+  const handleSavePersonal = async () => {
+    try {
+      const storedUser = localStorage.getItem("user");
+      const currentUser = JSON.parse(storedUser);
+      
+      // Call API to update user personal info
+      await authAPI.updateUser(currentUser.id, {
+        date_of_birth: editPersonal.dob,
+        age: editPersonal.age
+      });
+      
+      // Update local state
+      setUser(prev => ({ ...prev, date_of_birth: editPersonal.dob, dob: editPersonal.dob, age: editPersonal.age }));
+      setShowEditPersonal(false);
+      alert('Personal information updated successfully!');
+    } catch (err) {
+      const errorMessage = formatErrorMessage(err);
+      console.error('Error updating personal info:', err);
+      alert(`Failed to update personal information: ${errorMessage}`);
+    }
   };
 
-  const handleSaveContact = () => {
-    setUser(prev => ({ ...prev, phone: editContact.phone, email: editContact.email, location: editContact.location }));
-    setShowEditContact(false);
+  // Save contact info (Phone, Email, Location) - with API call
+  const handleSaveContact = async () => {
+    try {
+      const storedUser = localStorage.getItem("user");
+      const currentUser = JSON.parse(storedUser);
+      
+      // Call API to update user contact info
+      await authAPI.updateUser(currentUser.id, {
+        phone: editContact.phone,
+        email: editContact.email,
+        location: editContact.location
+      });
+      
+      // Update local state
+      setUser(prev => ({ ...prev, phone: editContact.phone, email: editContact.email, location: editContact.location }));
+      setShowEditContact(false);
+      alert('Contact information updated successfully!');
+    } catch (err) {
+      const errorMessage = formatErrorMessage(err);
+      console.error('Error updating contact info:', err);
+      alert(`Failed to update contact information: ${errorMessage}`);
+    }
   };
 
   const handleSaveConsultSettings = async () => {

@@ -1,14 +1,28 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Heart, MapPin } from "lucide-react";
-import mockData from "../../data/mockData.json";
+import { doctorsAPI } from "../../services/api";
 
 export default function Home() {
   const [doctors, setDoctors] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    // using mockData
-    setDoctors(mockData.doctors);
+    const fetchDoctors = async () => {
+      try {
+        setLoading(true);
+        const response = await doctorsAPI.getAllDoctors({ limit: 6 });
+        setDoctors(response.data || []);
+      } catch (err) {
+        console.error("Failed to fetch doctors:", err);
+        setError("Failed to load doctors. Please refresh the page.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDoctors();
   }, []);
 
   return (
@@ -81,52 +95,88 @@ export default function Home() {
             <h3 className="text-2xl font-bold text-gray-800">
               Recommended Doctors
             </h3>
-            <a href="#" className="text-teal-500 font-semibold text-sm">
+            <Link to="/dashboard" className="text-teal-500 font-semibold text-sm">
               View All &gt;
-            </a>
+            </Link>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {doctors.map((doc) => (
-              <div
-                key={doc.id}
-                className="border border-gray-100 rounded-xl p-6 shadow-sm hover:shadow-md transition"
-              >
-                <div className="flex items-center space-x-4 mb-4">
-                  <img
-                    src={doc.image}
-                    alt={doc.name}
-                    className="w-16 h-16 rounded-full bg-gray-200"
-                  />
-                  <div>
-                    <h4 className="font-bold text-lg text-gray-800">
-                      {doc.name}
-                    </h4>
-                    <p className="text-sm text-gray-500">
-                      {doc.specialty} | {doc.experience}
-                    </p>
-                    <span className="inline-block mt-1 px-2 py-1 text-xs text-teal-600 bg-teal-50 rounded-full">
-                      {doc.specialty}
-                    </span>
+          
+          {error && (
+            <div className="p-4 bg-red-50 text-red-700 rounded-lg border border-red-200 mb-6">
+              {error}
+            </div>
+          )}
+          
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="border border-gray-100 rounded-xl p-6 shadow-sm bg-gray-50 animate-pulse"
+                >
+                  <div className="flex items-center space-x-4 mb-4">
+                    <div className="w-16 h-16 rounded-full bg-gray-300" />
+                    <div className="flex-1">
+                      <div className="h-4 bg-gray-300 rounded mb-2 w-32" />
+                      <div className="h-3 bg-gray-300 rounded w-48" />
+                    </div>
                   </div>
+                  <div className="h-3 bg-gray-300 rounded mb-6 w-24" />
+                  <div className="h-10 bg-gray-300 rounded" />
                 </div>
-                <div className="flex justify-between items-center mb-6 text-sm text-gray-600 border-t pt-4">
-                  <div>
-                    <p className="font-semibold text-gray-800">
-                      {doc.hours.split(" ")[0]} {doc.hours.split(" ")[1]}
-                    </p>
-                    <p>{doc.hours.split(" ").slice(2).join(" ")}</p>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {doctors.map((doc) => (
+                <div
+                  key={doc.id}
+                  className="border border-gray-100 rounded-xl p-6 shadow-sm hover:shadow-md transition"
+                >
+                  <div className="flex items-center space-x-4 mb-4">
+                    <img
+                      src={doc.avatar || "https://randomuser.me/api/portraits/lego/1.jpg"}
+                      alt={doc.firstName}
+                      className="w-16 h-16 rounded-full bg-gray-200 object-cover"
+                      onError={(e) => {
+                        e.target.src = "https://randomuser.me/api/portraits/lego/1.jpg";
+                      }}
+                    />
+                    <div>
+                      <h4 className="font-bold text-lg text-gray-800">
+                        Dr. {doc.firstName} {doc.lastName}
+                      </h4>
+                      <p className="text-sm text-gray-500">
+                        {doc.specialization || "General Practitioner"}
+                      </p>
+                      <span className="inline-block mt-1 px-2 py-1 text-xs text-teal-600 bg-teal-50 rounded-full">
+                        {doc.specialization || "General Practice"}
+                      </span>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-gray-800">{doc.fee}</p>
-                    <p>Starting</p>
+                  <div className="flex justify-between items-center mb-6 text-sm text-gray-600 border-t pt-4">
+                    <div>
+                      <p className="font-semibold text-gray-800">
+                        {doc.yearsOfExperience || 0} years
+                      </p>
+                      <p>Experience</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold text-gray-800">
+                        RWF {doc.consultationFee || 0}
+                      </p>
+                      <p>Consultation</p>
+                    </div>
                   </div>
+                  <Link 
+                    to={`/dashboard?appointmentDoctor=${doc.id}`}
+                    className="w-full py-2 bg-teal-500 text-white rounded hover:bg-teal-600 transition block text-center"
+                  >
+                    Book an appointment
+                  </Link>
                 </div>
-                <button className="w-full py-2 bg-teal-500 text-white rounded hover:bg-teal-600 transition">
-                  Book an appointment
-                </button>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </section>
 
         {/* Nearby Doctors */}

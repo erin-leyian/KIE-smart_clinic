@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, Link, useNavigate } from "react-router-dom";
 import { Heart, Calendar, X, Apple, Facebook } from "lucide-react";
-import mockData from "../data/mockData.json";
+import { authAPI } from "../services/api";
 
 export default function Auth() {
   const location = useLocation();
@@ -32,46 +32,39 @@ export default function Auth() {
     setLoading(true);
 
     try {
-      // Simulate network request
-      await new Promise((resolve) => setTimeout(resolve, 800));
-
       if (isLogin) {
-        // Mock Login
-        const user = mockData.users.find(
-          (u) => u.email === email && u.password === password
-        );
-
-        if (!user) {
-          throw new Error("Invalid email or password");
-        }
-
-        localStorage.setItem("user", JSON.stringify(user));
-        localStorage.setItem("token", "dummy-mock-token-12345");
-        localStorage.setItem("userRole", user.role);
+        // Login with real API
+        const response = await authAPI.login(email, password);
         
-        // Route based on user role
-        if (user.role === "doctor") {
+        // Navigate based on user role
+        if (response.user.role === "doctor") {
           navigate("/dashboard/doctor");
-        } else if (user.role === "admin") {
+        } else if (response.user.role === "admin") {
           navigate("/dashboard/admin");
         } else {
           navigate("/dashboard");
         }
       } else {
-        // Mock Signup
-        const newUser = {
-          id: Date.now(),
+        // Signup with real API - need to collect all required fields
+        const signupData = {
+          firstName: email.split("@")[0],
+          lastName: email.split("@")[0],
           email,
           password,
-          name: email.split("@")[0],
+          phone,
+          dateOfBirth: birthDate,
           role: "patient",
+          gender: "other",
+          address: "",
+          city: "",
+          state: ""
         };
-        localStorage.setItem("user", JSON.stringify(newUser));
-        localStorage.setItem("token", "dummy-mock-token-12345");
+        
+        const response = await authAPI.register(signupData);
         navigate("/dashboard");
       }
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "Authentication failed. Please try again.");
     } finally {
       setLoading(false);
     }

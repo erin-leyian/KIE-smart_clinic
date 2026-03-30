@@ -3,10 +3,11 @@ import { useLocation } from 'react-router-dom';
 import { Search, Star, CreditCard, Clock, ChevronDown, AlertCircle, RotateCcw, Edit2, Trash2 } from 'lucide-react';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import Modal from '../../components/Modal';
-import mockData from '../../data/mockData.json';
+import { doctorsAPI, appointmentsAPI } from '../../services/api';
 import { getIconComponent, getSpecialtyBgColor } from '../../utils/medicalIcons';
 import { formatErrorMessage } from '../../utils/errorHandler';
-import { getCurrentUser, getUserRole, getFilteredDoctors } from '../../utils/dataAccessControl';
+import { getCurrentUser, getUserRole } from '../../utils/dataAccessControl';
+import { createNotification } from '../../utils/notificationManager';
 
 export default function AllDoctors() {
   const location = useLocation();
@@ -26,8 +27,26 @@ export default function AllDoctors() {
   const [deleteConfirmModal, setDeleteConfirmModal] = useState(false);
   const [doctorToDelete, setDoctorToDelete] = useState(null);
   const [editFormData, setEditFormData] = useState({});
+  const [bookingFormData, setBookingFormData] = useState({
+    date: '',
+    time: '09:00',
+    consultationType: 'Video Call',
+    paymentMethod: 'Clinic Payment',
+  });
+  const [bookingSubmitting, setBookingSubmitting] = useState(false);
 
   const [doctors, setDoctors] = useState([]);
+
+  const getDoctorName = (doctor) => {
+    if (!doctor) return 'Doctor';
+    const fullName = `${doctor.firstName || ''} ${doctor.lastName || ''}`.trim();
+    return fullName || doctor.name || 'Doctor';
+  };
+
+  const fetchDoctorDetails = async (doctorId) => {
+    const response = await doctorsAPI.getDoctorById(doctorId);
+    return response?.doctor || null;
+  };
 
   // Read search parameter from URL on mount
   useEffect(() => {
@@ -51,17 +70,13 @@ export default function AllDoctors() {
         setCurrentUser(user);
         setUserRole(role);
         
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 600));
+        // Fetch doctors from real API
+        const response = await doctorsAPI.getAllDoctors({
+          specialty: selectedSpecialty !== 'All' ? selectedSpecialty : undefined,
+          search: searchTerm
+        });
         
-        // Validate data
-        if (!mockData.doctors || !Array.isArray(mockData.doctors) || mockData.doctors.length === 0) {
-          throw new Error('No doctors found. Please try again.');
-        }
-        
-        // Get filtered doctors based on user role
-        const filtered = getFilteredDoctors(role, user);
-        setDoctors(filtered);
+        setDoctors(response.data || []);
         setLoading(false);
       } catch (err) {
         const errorMessage = formatErrorMessage(err);
@@ -71,7 +86,7 @@ export default function AllDoctors() {
     };
     
     loadDoctors();
-  }, []);
+  }, [searchTerm, selectedSpecialty]);
 
   // Retry loading doctors
   const handleRetryLoadData = async () => {
@@ -85,17 +100,16 @@ export default function AllDoctors() {
       setCurrentUser(user);
       setUserRole(role);
       
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 600));
+      const response = await doctorsAPI.getAllDoctors({
+        specialty: selectedSpecialty !== 'All' ? selectedSpecialty : undefined,
+        search: searchTerm,
+      });
       
-      // Validate data
-      if (!mockData.doctors || !Array.isArray(mockData.doctors) || mockData.doctors.length === 0) {
+      if (!response.data || !Array.isArray(response.data) || response.data.length === 0) {
         throw new Error('No doctors found. Please try again.');
       }
       
-      // Get filtered doctors based on user role
-      const filtered = getFilteredDoctors(role, user);
-      setDoctors(filtered);
+  setDoctors(response.data || []);
       setLoading(false);
     } catch (err) {
       const errorMessage = formatErrorMessage(err);
@@ -105,24 +119,38 @@ export default function AllDoctors() {
   };
 
   // Get unique specialties
-  const specialties = ['All', ...new Set(doctors.map(d => d.specialty))];
+  const specialties = ['All', ...new Set(doctors.map(d => d.specialization || 'General').filter(Boolean))];
 
   // Filter doctors
   const filteredDoctors = doctors.filter(doctor => {
-    const matchesSearch = doctor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         doctor.specialty.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         doctor.hospital.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesSpecialty = selectedSpecialty === 'All' || doctor.specialty === selectedSpecialty;
+    const doctorName = `${doctor.firstName || ''} ${doctor.lastName || ''}`.trim().toLowerCase();
+    const specialization = (doctor.specialization || '').toLowerCase();
+    
+    const matchesSearch = doctorName.includes(searchTerm.toLowerCase()) ||
+                         specialization.includes(searchTerm.toLowerCase());
+    const matchesSpecialty = selectedSpecialty === 'All' || doctor.specialization === selectedSpecialty;
     return matchesSearch && matchesSpecialty;
   });
 
-  const openDoctorDetails = (doctor) => {
-    setSelectedDoctorDetails(doctor);
-    setDoctorDetailsModal(true);
+  const openDoctorDetails = async (doctor) => {
+    try {
+      const fullDoctor = await fetchDoctorDetails(doctor.id);
+      setSelectedDoctorDetails(fullDoctor || doctor);
+      setDoctorDetailsModal(true);
+    } catch {
+      setSelectedDoctorDetails(doctor);
+      setDoctorDetailsModal(true);
+    }
   };
 
   const handleBookAppointment = (doctor) => {
     setSelectedDoctorForBooking(doctor);
+    setBookingFormData({
+      date: '',
+      time: '09:00',
+      consultationType: 'Video Call',
+      paymentMethod: 'Clinic Payment',
+    });
     setBookingModal(true);
   };
 
@@ -132,16 +160,33 @@ export default function AllDoctors() {
     setEditModal(true);
   };
 
-  const handleSaveEdit = () => {
-    if (!editFormData.name || !editFormData.specialty || !editFormData.hospital) {
-      alert('Please fill in required fields (Name, Specialty, Hospital)');
+  const handleSaveEdit = async () => {
+    if (!editFormData.specialization) {
+      alert('Please fill in required fields (Specialization)');
       return;
     }
-    const updatedDoctors = doctors.map(d => d.id === editFormData.id ? editFormData : d);
-    setDoctors(updatedDoctors);
-    setEditModal(false);
-    setEditingDoctor(null);
-    alert('Doctor updated successfully!');
+
+    try {
+      await doctorsAPI.updateDoctor(editFormData.id, {
+        phone: editFormData.phone || null,
+        specialization: editFormData.specialization,
+        qualifications: editFormData.qualifications || '',
+        yearsOfExperience: Number(editFormData.yearsOfExperience || 0),
+        consultationFee: Number(editFormData.consultationFee || 0),
+        consultationDuration: Number(editFormData.consultationDuration || 30),
+      });
+
+      const refreshed = await doctorsAPI.getAllDoctors({
+        specialty: selectedSpecialty !== 'All' ? selectedSpecialty : undefined,
+        search: searchTerm,
+      });
+      setDoctors(refreshed.data || []);
+      setEditModal(false);
+      setEditingDoctor(null);
+      alert('Doctor updated successfully!');
+    } catch (err) {
+      alert(`Failed to update doctor: ${formatErrorMessage(err)}`);
+    }
   };
 
   const handleDeleteClick = (doctor) => {
@@ -149,12 +194,63 @@ export default function AllDoctors() {
     setDeleteConfirmModal(true);
   };
 
-  const handleConfirmDelete = () => {
-    const updatedDoctors = doctors.filter(d => d.id !== doctorToDelete.id);
-    setDoctors(updatedDoctors);
-    setDeleteConfirmModal(false);
-    setDoctorToDelete(null);
-    alert('Doctor deleted successfully!');
+  const handleConfirmDelete = async () => {
+    try {
+      await doctorsAPI.deleteDoctor(doctorToDelete.id);
+      const updatedDoctors = doctors.filter(d => d.id !== doctorToDelete.id);
+      setDoctors(updatedDoctors);
+      setDeleteConfirmModal(false);
+      setDoctorToDelete(null);
+      alert('Doctor deleted successfully!');
+    } catch (err) {
+      alert(`Failed to delete doctor: ${formatErrorMessage(err)}`);
+    }
+  };
+
+  const handleConfirmBooking = async () => {
+    if (!currentUser?.id) {
+      alert('Please log in to book an appointment');
+      return;
+    }
+
+    if (!bookingFormData.date || !bookingFormData.time) {
+      alert('Please select date and time');
+      return;
+    }
+
+    try {
+      setBookingSubmitting(true);
+
+      const response = await appointmentsAPI.createAppointment({
+        patientId: currentUser.id,
+        doctorId: selectedDoctorForBooking?.id,
+        appointmentDate: bookingFormData.date,
+        appointmentTime: bookingFormData.time,
+        reason: `Consultation booking with ${getDoctorName(selectedDoctorForBooking)}`,
+        notes: `Type: ${bookingFormData.consultationType}; Payment: ${bookingFormData.paymentMethod}`,
+        status: 'scheduled',
+      });
+
+      createNotification({
+        type: 'Confirmed',
+        title: 'Appointment Booked Successfully',
+        message: `Appointment with ${getDoctorName(selectedDoctorForBooking)} on ${bookingFormData.date} at ${bookingFormData.time} is scheduled.`,
+        appointmentId: response?.appointment?.id || response?.data?.id,
+        relatedTo: currentUser.id,
+        relatedName: `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() || currentUser.name,
+      });
+
+      setBookedDoctors(prev => ({
+        ...prev,
+        [selectedDoctorForBooking?.id]: true
+      }));
+      setBookingModal(false);
+      alert('Appointment booked successfully!');
+    } catch (err) {
+      alert(`Failed to book appointment: ${formatErrorMessage(err)}`);
+    } finally {
+      setBookingSubmitting(false);
+    }
   };
 
   return (
@@ -229,8 +325,8 @@ export default function AllDoctors() {
         {filteredDoctors.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredDoctors.map(doctor => {
-              const bgColor = getSpecialtyBgColor(doctor.specialty);
-              const IconComponent = getIconComponent(doctor.specialty);
+              const bgColor = getSpecialtyBgColor(doctor.specialization);
+              const IconComponent = getIconComponent(doctor.specialization);
               return (
                 <div
                   key={doctor.id}
@@ -243,32 +339,32 @@ export default function AllDoctors() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <h3 className="font-bold text-gray-900 group-hover:text-teal-600 transition cursor-pointer" onClick={() => openDoctorDetails(doctor)}>
-                          {doctor.name}
+                          {`${doctor.firstName || ''} ${doctor.lastName || ''}`.trim()}
                         </h3>
-                        <p className="text-xs text-gray-500 mt-0.5">{doctor.experience}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{doctor.yearsOfExperience || 0} years experience</p>
                         <div className="flex items-center mt-1">
                           <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                          <span className="text-xs text-gray-600 ml-1">{doctor.rating}</span>
+                          <span className="text-xs text-gray-600 ml-1">{doctor.rating || 'N/A'}</span>
                         </div>
                       </div>
                     </div>
                   </div>
 
                   <span className="inline-block px-2.5 py-1 bg-teal-50 text-teal-600 text-[10px] font-medium rounded-md mb-4 w-fit">
-                    {doctor.specialty}
+                    {doctor.specialization || 'General'}
                   </span>
 
                   <div className="space-y-2 mb-4 pb-4 border-b border-gray-100 text-sm">
                     <div className="text-gray-600">
-                      <span className="font-medium text-gray-800">{doctor.hospital}</span>
+                      <span className="font-medium text-gray-800">{doctor.qualifications || 'Qualified Professional'}</span>
                     </div>
                     <div className="flex items-center text-gray-600">
                       <Clock className="w-3.5 h-3.5 mr-2 text-gray-400" />
-                      <span className="text-xs">{doctor.hours}</span>
+                      <span className="text-xs">{doctor.consultationDuration || 30} min consultation</span>
                     </div>
                     <div className="flex items-center text-gray-600">
                       <CreditCard className="w-3.5 h-3.5 mr-2 text-gray-400" />
-                      <span className="text-xs font-medium">{doctor.fee}</span>
+                      <span className="text-xs font-medium">RWF {doctor.consultationFee || 'Contact'}</span>
                     </div>
                   </div>
 
@@ -325,7 +421,7 @@ export default function AllDoctors() {
       <Modal
         isOpen={doctorDetailsModal}
         onClose={() => setDoctorDetailsModal(false)}
-        title={selectedDoctorDetails?.name}
+  title={getDoctorName(selectedDoctorDetails)}
         size="lg"
         actions={[
           {
@@ -348,16 +444,16 @@ export default function AllDoctors() {
             <div className="flex items-start space-x-4 pb-4 border-b">
               <div className="w-20 h-20 rounded-full bg-gradient-to-br from-teal-100 to-blue-100 flex items-center justify-center text-4xl flex-shrink-0">
                 {(() => {
-                  const IconComponent = getIconComponent(selectedDoctorDetails.specialty);
+                  const IconComponent = getIconComponent(selectedDoctorDetails.specialization || selectedDoctorDetails.specialty);
                   return <IconComponent className="w-10 h-10 text-teal-600" />;
                 })()}
               </div>
               <div className="flex-1">
-                <h3 className="text-lg font-bold text-gray-900">{selectedDoctorDetails.name}</h3>
-                <p className="text-teal-600 font-medium">{selectedDoctorDetails.specialty}</p>
+                <h3 className="text-lg font-bold text-gray-900">{getDoctorName(selectedDoctorDetails)}</h3>
+                <p className="text-teal-600 font-medium">{selectedDoctorDetails.specialization || selectedDoctorDetails.specialty || 'General'}</p>
                 <div className="flex items-center mt-2">
                   <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                  <span className="ml-1 text-sm text-gray-600">{selectedDoctorDetails.rating} • {selectedDoctorDetails.hospital}</span>
+                  <span className="ml-1 text-sm text-gray-600">{selectedDoctorDetails.rating || 'N/A'} • {selectedDoctorDetails.qualifications || 'Qualified Professional'}</span>
                 </div>
               </div>
             </div>
@@ -365,19 +461,19 @@ export default function AllDoctors() {
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-blue-50 p-4 rounded-lg">
                 <p className="text-xs text-gray-600 font-medium">Experience</p>
-                <p className="font-bold text-gray-900 mt-1">{selectedDoctorDetails.experience}</p>
+                <p className="font-bold text-gray-900 mt-1">{selectedDoctorDetails.yearsOfExperience || selectedDoctorDetails.experience || 0} years</p>
               </div>
               <div className="bg-green-50 p-4 rounded-lg">
                 <p className="text-xs text-gray-600 font-medium">Consultation Fee</p>
-                <p className="font-bold text-gray-900 mt-1">{selectedDoctorDetails.fee}</p>
+                <p className="font-bold text-gray-900 mt-1">RWF {selectedDoctorDetails.consultationFee || selectedDoctorDetails.fee || 'Contact'}</p>
               </div>
             </div>
 
             <div>
               <h4 className="font-bold text-gray-900 mb-3">Key Information</h4>
               <div className="space-y-2 text-sm">
-                <div><span className="text-gray-600">Hospital:</span> <span className="font-medium text-gray-900">{selectedDoctorDetails.hospital}</span></div>
-                <div><span className="text-gray-600">Hours:</span> <span className="font-medium text-gray-900">{selectedDoctorDetails.hours}</span></div>
+                <div><span className="text-gray-600">Specialization:</span> <span className="font-medium text-gray-900">{selectedDoctorDetails.specialization || selectedDoctorDetails.specialty || 'General'}</span></div>
+                <div><span className="text-gray-600">Duration:</span> <span className="font-medium text-gray-900">{selectedDoctorDetails.consultationDuration || 30} mins</span></div>
                 <div><span className="text-gray-600">City:</span> <span className="font-medium text-gray-900">{selectedDoctorDetails.city || 'Kigali'}</span></div>
               </div>
             </div>
@@ -385,7 +481,7 @@ export default function AllDoctors() {
             <div>
               <h4 className="font-bold text-gray-900 mb-3">Languages Spoken</h4>
               <div className="flex flex-wrap gap-2">
-                {selectedDoctorDetails.languages?.map(lang => (
+                {(selectedDoctorDetails.languages || ['English'])?.map(lang => (
                   <span key={lang} className="px-3 py-1 bg-teal-50 text-teal-600 text-sm rounded-full font-medium">
                     {lang}
                   </span>
@@ -396,8 +492,8 @@ export default function AllDoctors() {
             <div className="bg-gray-50 p-4 rounded-lg">
               <h4 className="font-bold text-gray-900 mb-2">About this Doctor</h4>
               <p className="text-sm text-gray-600">
-                Dr. {selectedDoctorDetails.name.split(' ').pop()} is a highly qualified {selectedDoctorDetails.specialty.toLowerCase()} with {selectedDoctorDetails.experience} of professional experience.
-                Available for consultations via video call, phone, or in-person appointments at {selectedDoctorDetails.hospital}.
+                Dr. {getDoctorName(selectedDoctorDetails).split(' ').pop()} is a highly qualified {(selectedDoctorDetails.specialization || selectedDoctorDetails.specialty || 'general practice').toLowerCase()} specialist with {selectedDoctorDetails.yearsOfExperience || selectedDoctorDetails.experience || 0} years of professional experience.
+                Available for consultations via video call, phone, or in-person appointments.
               </p>
             </div>
           </div>
@@ -409,18 +505,12 @@ export default function AllDoctors() {
         <Modal
           isOpen={bookingModal}
           onClose={() => setBookingModal(false)}
-          title={`Quick Book with ${selectedDoctorForBooking?.name}`}
+          title={`Quick Book with ${getDoctorName(selectedDoctorForBooking)}`}
           size="md"
           actions={[
             {
               label: 'Book Now',
-              onClick: () => {
-                setBookedDoctors(prev => ({
-                  ...prev,
-                  [selectedDoctorForBooking?.id]: true
-                }));
-                setBookingModal(false);
-              },
+              onClick: handleConfirmBooking,
               variant: 'primary'
             },
             {
@@ -433,30 +523,57 @@ export default function AllDoctors() {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Select Date</label>
-              <input type="date" className="w-full border p-2 rounded-lg outline-none focus:ring-2 focus:ring-teal-500" />
+              <input
+                type="date"
+                value={bookingFormData.date}
+                onChange={(e) => setBookingFormData(prev => ({ ...prev, date: e.target.value }))}
+                className="w-full border p-2 rounded-lg outline-none focus:ring-2 focus:ring-teal-500"
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Select Time</label>
-              <select className="w-full border p-2 rounded-lg outline-none focus:ring-2 focus:ring-teal-500">
-                <option>09:00 AM</option>
-                <option>10:00 AM</option>
-                <option>11:00 AM</option>
-                <option>2:00 PM</option>
-                <option>3:00 PM</option>
-                <option>4:00 PM</option>
+              <select
+                value={bookingFormData.time}
+                onChange={(e) => setBookingFormData(prev => ({ ...prev, time: e.target.value }))}
+                className="w-full border p-2 rounded-lg outline-none focus:ring-2 focus:ring-teal-500"
+              >
+                <option value="09:00">09:00 AM</option>
+                <option value="10:00">10:00 AM</option>
+                <option value="11:00">11:00 AM</option>
+                <option value="14:00">02:00 PM</option>
+                <option value="15:00">03:00 PM</option>
+                <option value="16:00">04:00 PM</option>
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Consultation Type</label>
-              <select className="w-full border p-2 rounded-lg outline-none focus:ring-2 focus:ring-teal-500">
+              <select
+                value={bookingFormData.consultationType}
+                onChange={(e) => setBookingFormData(prev => ({ ...prev, consultationType: e.target.value }))}
+                className="w-full border p-2 rounded-lg outline-none focus:ring-2 focus:ring-teal-500"
+              >
                 <option>Video Call</option>
                 <option>Phone Call</option>
                 <option>Text Message</option>
               </select>
             </div>
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <p className="text-sm text-gray-700"><strong>Fee:</strong> {selectedDoctorForBooking?.fee}</p>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Payment Method</label>
+              <select
+                value={bookingFormData.paymentMethod}
+                onChange={(e) => setBookingFormData(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                className="w-full border p-2 rounded-lg outline-none focus:ring-2 focus:ring-teal-500"
+              >
+                <option>Clinic Payment</option>
+                <option>MTN Mobile Money</option>
+                <option>Airtel Money</option>
+                <option>Bank Transfer</option>
+              </select>
             </div>
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <p className="text-sm text-gray-700"><strong>Fee:</strong> RWF {selectedDoctorForBooking?.consultationFee || selectedDoctorForBooking?.fee || 'Contact'}</p>
+            </div>
+            {bookingSubmitting && <p className="text-sm text-teal-600">Booking appointment...</p>}
           </div>
         </Modal>
       )}
@@ -492,8 +609,11 @@ export default function AllDoctors() {
               <label className="block text-sm font-medium text-gray-700 mb-2">Name *</label>
               <input
                 type="text"
-                value={editFormData.name || ''}
-                onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                value={`${editFormData.firstName || ''} ${editFormData.lastName || ''}`.trim()}
+                onChange={(e) => {
+                  const [firstName, ...rest] = e.target.value.split(' ');
+                  setEditFormData({ ...editFormData, firstName, lastName: rest.join(' ') });
+                }}
                 className="w-full border p-2 rounded-lg outline-none focus:ring-2 focus:ring-teal-500"
               />
             </div>
@@ -501,17 +621,17 @@ export default function AllDoctors() {
               <label className="block text-sm font-medium text-gray-700 mb-2">Specialty *</label>
               <input
                 type="text"
-                value={editFormData.specialty || ''}
-                onChange={(e) => setEditFormData({ ...editFormData, specialty: e.target.value })}
+                value={editFormData.specialization || editFormData.specialty || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, specialization: e.target.value })}
                 className="w-full border p-2 rounded-lg outline-none focus:ring-2 focus:ring-teal-500"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Hospital *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Qualifications</label>
               <input
                 type="text"
-                value={editFormData.hospital || ''}
-                onChange={(e) => setEditFormData({ ...editFormData, hospital: e.target.value })}
+                value={editFormData.qualifications || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, qualifications: e.target.value })}
                 className="w-full border p-2 rounded-lg outline-none focus:ring-2 focus:ring-teal-500"
               />
             </div>
@@ -519,8 +639,8 @@ export default function AllDoctors() {
               <label className="block text-sm font-medium text-gray-700 mb-2">Experience</label>
               <input
                 type="text"
-                value={editFormData.experience || ''}
-                onChange={(e) => setEditFormData({ ...editFormData, experience: e.target.value })}
+                value={editFormData.yearsOfExperience || editFormData.experience || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, yearsOfExperience: e.target.value })}
                 className="w-full border p-2 rounded-lg outline-none focus:ring-2 focus:ring-teal-500"
               />
             </div>
@@ -540,8 +660,8 @@ export default function AllDoctors() {
               <label className="block text-sm font-medium text-gray-700 mb-2">Fee</label>
               <input
                 type="text"
-                value={editFormData.fee || ''}
-                onChange={(e) => setEditFormData({ ...editFormData, fee: e.target.value })}
+                value={editFormData.consultationFee || editFormData.fee || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, consultationFee: e.target.value })}
                 className="w-full border p-2 rounded-lg outline-none focus:ring-2 focus:ring-teal-500"
               />
             </div>
@@ -549,8 +669,8 @@ export default function AllDoctors() {
               <label className="block text-sm font-medium text-gray-700 mb-2">Hours</label>
               <input
                 type="text"
-                value={editFormData.hours || ''}
-                onChange={(e) => setEditFormData({ ...editFormData, hours: e.target.value })}
+                value={editFormData.consultationDuration || editFormData.hours || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, consultationDuration: e.target.value })}
                 className="w-full border p-2 rounded-lg outline-none focus:ring-2 focus:ring-teal-500"
               />
             </div>
@@ -586,7 +706,7 @@ export default function AllDoctors() {
         >
           <div className="text-center py-4">
             <p className="text-gray-700 mb-4">
-              Are you sure you want to delete <strong>{doctorToDelete.name}</strong>?
+              Are you sure you want to delete <strong>{getDoctorName(doctorToDelete)}</strong>?
             </p>
             <p className="text-sm text-gray-500">
               This action cannot be undone.

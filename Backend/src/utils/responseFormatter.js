@@ -30,10 +30,16 @@ const sendSuccess = (res, data = null, message = null, statusCode = 200) => {
       if (data.pagination) {
         response.pagination = data.pagination;
       }
-    } else {
-      // For other objects, merge them
-      Object.assign(response, data);
     }
+    
+    // Always merge additional fields like token
+    if (data.user) response.user = data.user;
+    if (data.token) response.token = data.token;
+    if (data.doctor) response.doctor = data.doctor;
+    if (data.appointment) response.appointment = data.appointment;
+    if (data.record) response.record = data.record;
+    if (data.queue) response.queue = data.queue;
+    if (data.pagination) response.pagination = data.pagination;
   }
 
   return res.status(statusCode).json(response);
@@ -86,18 +92,18 @@ const formatUserResponse = (user) => {
   
   return {
     id: user.id,
-    firstName: user.firstName,
-    lastName: user.lastName,
+    firstName: user.first_name,
+    lastName: user.last_name,
     email: user.email,
     role: user.role,
     phone: user.phone,
-    dateOfBirth: user.dateOfBirth,
+    dateOfBirth: user.date_of_birth,
     gender: user.gender,
     address: user.address,
     city: user.city,
     state: user.state,
-    createdAt: user.createdAt,
-    updatedAt: user.updatedAt,
+    createdAt: user.created_at,
+    updatedAt: user.updated_at,
   };
 };
 
@@ -106,8 +112,8 @@ const formatDoctorResponse = (user, specialization) => {
 
   const doctor = {
     id: user.id,
-    firstName: user.firstName,
-    lastName: user.lastName,
+    firstName: user.first_name,
+    lastName: user.last_name,
     email: user.email,
     phone: user.phone,
   };
@@ -115,9 +121,9 @@ const formatDoctorResponse = (user, specialization) => {
   if (specialization) {
     doctor.specialization = specialization.specialization;
     doctor.qualifications = specialization.qualifications;
-    doctor.yearsOfExperience = specialization.yearsOfExperience;
-    doctor.consultationFee = specialization.consultationFee;
-    doctor.consultationDuration = specialization.consultationDuration;
+    doctor.yearsOfExperience = specialization.years_of_experience;
+    doctor.consultationFee = specialization.consultation_fee;
+    doctor.consultationDuration = specialization.consultation_duration;
     doctor.consultationEnabled = specialization.consultationEnabled;
     doctor.rating = specialization.rating;
     doctor.totalConsultations = specialization.totalConsultations;
@@ -148,17 +154,25 @@ const formatAppointmentResponse = (appointment, doctor = null, patient = null) =
 
   return {
     id: appointment.id,
-    doctorId: appointment.doctorId,
+    doctor_id: appointment.doctor_id,
+    doctorId: appointment.doctor_id,
     doctorName,
-    patientId: appointment.patientId,
+    patient_id: appointment.patient_id,
+    patientId: appointment.patient_id,
     patientName,
-    appointmentDate: appointment.appointmentDate,
-    appointmentTime: appointment.appointmentTime,
+    appointment_date: appointment.appointment_date,
+    appointmentDate: appointment.appointment_date,
+    appointment_time: appointment.appointment_time,
+    appointmentTime: appointment.appointment_time,
     reason: appointment.reason,
     notes: appointment.notes,
+    type: appointment.type || 'Consultation',
+    specialty: doctor?.specialty || appointment.specialty || null,
+    consultationFee: doctor?.consultationFee ?? appointment.consultation_fee ?? null,
+    fee: doctor?.consultationFee ?? appointment.consultation_fee ?? null,
     status: appointment.status,
-    createdAt: appointment.createdAt,
-    updatedAt: appointment.updatedAt,
+    createdAt: appointment.created_at || appointment.createdAt,
+    updatedAt: appointment.updated_at || appointment.updatedAt,
   };
 };
 
