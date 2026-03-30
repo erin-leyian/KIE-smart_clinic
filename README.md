@@ -46,6 +46,10 @@ KIE-smart_clinic/
 
 ## Backend Data Architecture (Preview)
 
+![KIE Smart Clinic database schema preview](docs/db-schema.svg)
+
+If your Markdown viewer does not render Mermaid blocks, use the static ERD image above.
+
 ```mermaid
 erDiagram
   users {
