@@ -130,7 +130,6 @@ Notes:
 - Connections labeled with `_fk` are SQL foreign-key relationships.
 - Connections labeled `admin_manages_app_level` are application-level links (no direct SQL foreign key in the current schema).
 
-Interactive ERD source: [smart_clinic_schema_erd.html](smart_clinic_schema_erd.html)
 
 ## Tech Stack
 
