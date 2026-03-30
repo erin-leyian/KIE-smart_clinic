@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import { BarChart3, Users, FileText, Clock, CheckCircle, AlertCircle, Calendar, Phone, MapPin, Stethoscope, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
-import mockData from '../../data/mockData.json';
+import { appointmentsAPI, authAPI } from '../../services/api';
 
 
 export default function DoctorDashboard() {
@@ -38,32 +38,59 @@ export default function DoctorDashboard() {
 
     setUser(userData);
 
-    const docAppointments = mockData.appointments.filter(
-      apt => apt.doctorName === userData.name
-    );
-    setDoctorAppointments(docAppointments);
+    // Fetch doctor's appointments from API
+    const fetchAppointments = async () => {
+      try {
+        const appointmentsData = await appointmentsAPI.getAllAppointments({ 
+          doctorId: userData.id 
+        });
+        const docAppointments = appointmentsData.appointments || [];
+        setDoctorAppointments(docAppointments);
 
-    const uniquePatientIds = new Set(docAppointments.map(apt => apt.patientId));
-    const patients = mockData.users.filter(u => uniquePatientIds.has(u.id) && u.role === 'patient');
-    setUniquePatients(patients);
+        // Get unique patient IDs and fetch users
+        const patientIds = [...new Set(docAppointments.map(apt => apt.patient_id || apt.patientId))];
+        
+        let patients = [];
+        if (patientIds.length > 0) {
+          const usersData = await authAPI.getAllUsers();
+          const allUsers = usersData.users || [];
+          patients = allUsers.filter(u => patientIds.includes(u.id) && u.role === 'patient');
+        }
+        
+        setUniquePatients(patients);
 
-    const completed = docAppointments.filter(apt => apt.status === 'Completed').length;
-    const pending = docAppointments.filter(apt => apt.status === 'Pending').length;
-    const upcoming = docAppointments.filter(apt => apt.status === 'Confirmed' && new Date(apt.dateObj) > new Date()).length;
-    
-    const consultationHours = (completed * 0.5).toFixed(1);
+        const completed = docAppointments.filter(apt => apt.status === 'Completed').length;
+        const pending = docAppointments.filter(apt => apt.status === 'Pending').length;
+        const upcoming = docAppointments.filter(apt => apt.status === 'Confirmed' && new Date(apt.date) > new Date()).length;
+        
+        const consultationHours = (completed * 0.5).toFixed(1);
 
-    setStats({
-      totalPatients: patients.length,
-      totalAppointments: docAppointments.length,
-      completedAppointments: completed,
-      pendingConfirmations: pending,
-      upcomingAppointments: upcoming,
-      totalConsultationHours: consultationHours,
-      averageRating: 4.8,
-    });
+        setStats({
+          totalPatients: patients.length,
+          totalAppointments: docAppointments.length,
+          completedAppointments: completed,
+          pendingConfirmations: pending,
+          upcomingAppointments: upcoming,
+          totalConsultationHours: consultationHours,
+          averageRating: 4.8,
+        });
+      } catch (err) {
+        console.error('Error fetching appointments:', err);
+        setStats({
+          totalPatients: 0,
+          totalAppointments: 0,
+          completedAppointments: 0,
+          pendingConfirmations: 0,
+          upcomingAppointments: 0,
+          totalConsultationHours: 0,
+          averageRating: 4.8,
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    setLoading(false);
+    fetchAppointments();
   }, [navigate]);
 
   const getWeekDates = (date) => {

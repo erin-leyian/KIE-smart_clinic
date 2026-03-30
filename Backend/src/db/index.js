@@ -1,10 +1,21 @@
-// Database not connected yet — waiting for teammate
-// This file will be updated once DB credentials are shared
+const { Pool } = require('pg');
 
-const mockDB = {
-  query: async () => {
-    throw new Error('Database not connected yet');
-  }
-};
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false,
+  },
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000,
+});
 
-module.exports = mockDB;
+pool.on('connect', () => {
+  console.log('✅ Connected to Supabase PostgreSQL');
+});
+
+pool.on('error', (err) => {
+  console.error('❌ DB connection error:', err.message);
+});
+
+module.exports = pool;

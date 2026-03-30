@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import mockData from "../../data/mockData.json";
+// Note: removed mockData fallback to ensure real user data is used from localStorage / API
 import NotificationPanel from "../NotificationPanel";
 import {
   LayoutDashboard,
@@ -141,10 +141,19 @@ export default function DashboardLayout({ children, title }) {
 
   const navItems = getNavItems(currentUser?.role || 'patient');
 
-  const user = currentUser || mockData.users?.[0] || {
-    name: "User",
-    avatar: "https://randomuser.me/api/portraits/men/32.jpg",
+  const getDisplayName = (userData) => {
+    if (!userData) return 'User';
+
+    const fullName = [userData.firstName, userData.lastName].filter(Boolean).join(' ').trim();
+    if (fullName) return fullName;
+    if (userData.name) return userData.name;
+    if (userData.email) return userData.email.split('@')[0];
+    return 'User';
   };
+
+  // Prefer the authenticated user; if not present show a minimal placeholder (do not use mock data)
+  const user = currentUser || { name: "User", avatar: "https://randomuser.me/api/portraits/men/32.jpg" };
+  const displayName = getDisplayName(user);
 
   const handleLogout = () => {
     localStorage.removeItem('user');
@@ -198,7 +207,7 @@ export default function DashboardLayout({ children, title }) {
         <header className="bg-white px-8 py-5 flex items-center justify-between gap-6 border-b flex-shrink-0">
           <div className="flex-shrink-0">
             <p className="text-sm font-medium text-gray-500 mb-1">
-              Hi, {user.name}
+              Hi, {displayName}
             </p>
             <h1 className="text-2xl font-bold text-[#1a1a1a]">
               {title === "Dashboard" ? "Welcome Back" : title}
@@ -266,7 +275,7 @@ export default function DashboardLayout({ children, title }) {
             <div className="flex items-center space-x-2 pl-3 border-l border-gray-200">
               <div className="text-right">
                 <p className="font-semibold text-[15px] text-[#1a1a1a] leading-tight">
-                  {user.name}
+                  {displayName}
                 </p>
                 <p className="text-xs text-gray-400">
                   {currentUser?.role ? currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1) : 'Patient'}

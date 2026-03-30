@@ -4,10 +4,11 @@ import { MapPin, Clock, CreditCard, ChevronLeft, ChevronRight, Calendar as Calen
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import Modal from '../../components/Modal';
 import { LoadingSpinner, DoctorCardSkeleton, BannerSkeleton } from '../../components/LoadingSkeletons';
-import mockData from '../../data/mockData.json';
+import { doctorsAPI, appointmentsAPI } from '../../services/api';
 import { getIconComponent, getSpecialtyBgColor } from '../../utils/medicalIcons';
-import { safeFetch, formatErrorMessage, loadMockData } from '../../utils/errorHandler';
-import { getCurrentUser, getUserRole, getFilteredAppointments, getUpcomingAppointments } from '../../utils/dataAccessControl';
+import { safeFetch, formatErrorMessage } from '../../utils/errorHandler';
+import { getCurrentUser, getUserRole } from '../../utils/dataAccessControl';
+import { createNotification } from '../../utils/notificationManager';
 
 export default function DashboardHome() {
   const navigate = useNavigate();
@@ -22,6 +23,7 @@ export default function DashboardHome() {
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [userRole, setUserRole] = useState('patient');
+  const [userAppointments, setUserAppointments] = useState([]);
   
   // Modal states
   const [bookingModal, setBookingModal] = useState(false);
@@ -31,6 +33,7 @@ export default function DashboardHome() {
   const [selectedTime, setSelectedTime] = useState('');
   const [consultationType, setConsultationType] = useState('video');
   const [bookingSuccess, setBookingSuccess] = useState(false);
+  const [bookingSubmitting, setBookingSubmitting] = useState(false);
   
   // View doctor details modal
   const [doctorDetailsModal, setDoctorDetailsModal] = useState(false);
@@ -66,6 +69,54 @@ export default function DashboardHome() {
     return () => clearInterval(timer);
   }, []);
 
+  const getDoctorDisplayName = (doctor) => {
+    if (!doctor) return 'Doctor';
+    const fullName = [doctor.firstName, doctor.lastName].filter(Boolean).join(' ').trim();
+    if (fullName) return fullName;
+    return doctor.name || 'Doctor';
+  };
+
+  const getUserDisplayName = (user) => {
+    if (!user) return '';
+    const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
+    if (fullName) return fullName;
+    return user.name || user.email || '';
+  };
+
+  const mapAppointmentForCard = (appointment) => {
+    const appointmentDate = appointment.appointmentDate || appointment.appointment_date || appointment.date;
+    const parsedDate = appointmentDate ? new Date(appointmentDate) : null;
+
+    return {
+      id: appointment.id,
+      day: parsedDate && !Number.isNaN(parsedDate.getTime())
+        ? parsedDate.toLocaleDateString('en-US', { weekday: 'short' })
+        : '-',
+      date: parsedDate && !Number.isNaN(parsedDate.getTime())
+        ? parsedDate.toLocaleDateString('en-US', { day: '2-digit' })
+        : '-',
+      doctor: appointment.doctorName || 'Doctor',
+      time: appointment.appointmentTime || appointment.appointment_time || appointment.time || '-',
+      specialty: appointment.specialty || appointment.type || 'General',
+      status: appointment.status,
+      dateObj: parsedDate,
+    };
+  };
+
+  const loadUserAppointments = async (user, role) => {
+    if (!user) {
+      setUserAppointments([]);
+      return;
+    }
+
+    const filters = {};
+    if (role === 'patient') filters.patientId = user.id;
+    if (role === 'doctor') filters.doctorId = user.id;
+
+    const response = await appointmentsAPI.getAllAppointments(filters);
+    setUserAppointments(response?.data || []);
+  };
+
   // Simulate loading with error handling
   useEffect(() => {
     const loadDashboardData = async () => {
@@ -78,17 +129,8 @@ export default function DashboardHome() {
         const role = getUserRole();
         setCurrentUser(user);
         setUserRole(role);
-        
-        // Simulate loading delay
-        await new Promise(resolve => setTimeout(resolve, 800));
-        
-        // Validate mock data structure
-        if (!mockData.doctors || !Array.isArray(mockData.doctors)) {
-          throw new Error('Doctor data is missing or invalid');
-        }
-        if (!mockData.appointments || !Array.isArray(mockData.appointments)) {
-          throw new Error('Appointment data is missing or invalid');
-        }
+
+        await loadUserAppointments(user, role);
         
         setLoading(false);
       } catch (err) {
@@ -109,17 +151,21 @@ export default function DashboardHome() {
       return;
     }
 
-    const filtered = mockData.doctors.filter(doctor => {
-      const lowerSearch = searchTerm.toLowerCase();
-      return (
-        doctor.name.toLowerCase().includes(lowerSearch) ||
-        doctor.specialty.toLowerCase().includes(lowerSearch) ||
-        doctor.hospital.toLowerCase().includes(lowerSearch)
-      );
-    }).slice(0, 5); // Limit to 5 results
+    const fetchSearchResults = async () => {
+      try {
+        const response = await doctorsAPI.getAllDoctors({
+          search: searchTerm,
+          limit: 5
+        });
+        setSearchResults(response.data || []);
+        setShowSearchResults(true);
+      } catch (err) {
+        setSearchResults([]);
+        setShowSearchResults(false);
+      }
+    };
 
-    setSearchResults(filtered);
-    setShowSearchResults(true);
+    fetchSearchResults();
   }, [searchTerm]);
 
   // Retry loading data
@@ -133,17 +179,8 @@ export default function DashboardHome() {
       const role = getUserRole();
       setCurrentUser(user);
       setUserRole(role);
-      
-      // Simulate loading delay
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // Validate mock data structure
-      if (!mockData.doctors || !Array.isArray(mockData.doctors)) {
-        throw new Error('Doctor data is missing or invalid');
-      }
-      if (!mockData.appointments || !Array.isArray(mockData.appointments)) {
-        throw new Error('Appointment data is missing or invalid');
-      }
+
+      await loadUserAppointments(user, role);
       
       setLoading(false);
     } catch (err) {
@@ -159,47 +196,111 @@ export default function DashboardHome() {
     setBookingModal(true);
   };
 
-  const handleConfirmBooking = () => {
-    setBookedDoctors(prev => ({
-      ...prev,
-      [selectedDoctorForBooking.id]: true
-    }));
-    setBookingSuccess(true);
-    setTimeout(() => {
-      setBookingModal(false);
-      setBookingSuccess(false);
-      setBookingStep(1);
-    }, 2000);
+  const handleConfirmBooking = async (paymentMethod = 'Clinic Payment') => {
+    if (!currentUser?.id || !selectedDoctorForBooking?.id || !selectedDate || !selectedTime) {
+      return;
+    }
+
+    try {
+      setBookingSubmitting(true);
+
+      const response = await appointmentsAPI.createAppointment({
+        patientId: currentUser.id,
+        doctorId: selectedDoctorForBooking.id,
+        appointmentDate: selectedDate,
+        appointmentTime: selectedTime,
+        reason: `Consultation via ${consultationType}`,
+        notes: `Consultation: ${consultationType}; Payment: ${paymentMethod}`,
+        type:
+          consultationType === 'video'
+            ? 'Video Call'
+            : consultationType === 'phone'
+              ? 'Phone Call'
+              : 'Text Message',
+        status: 'scheduled',
+      });
+
+      const bookedAppointment = response?.appointment || response?.data || null;
+      createNotification({
+        type: 'Confirmed',
+        title: 'Appointment Booked Successfully',
+        message: `Your appointment with ${getDoctorDisplayName(selectedDoctorForBooking)} is scheduled on ${selectedDate} at ${selectedTime}.`,
+        appointmentId: bookedAppointment?.id,
+        relatedTo: currentUser.id,
+        relatedName: getUserDisplayName(currentUser),
+        meta: {
+          paymentMethod,
+          consultationType,
+        },
+      });
+
+      await loadUserAppointments(currentUser, userRole);
+      setBookedDoctors(prev => ({
+        ...prev,
+        [selectedDoctorForBooking.id]: true
+      }));
+      setBookingSuccess(true);
+      setTimeout(() => {
+        setBookingModal(false);
+        setBookingSuccess(false);
+        setBookingStep(1);
+        setSelectedDate('');
+        setSelectedTime('');
+        setConsultationType('video');
+      }, 2000);
+    } catch (err) {
+      setError(formatErrorMessage(err));
+    } finally {
+      setBookingSubmitting(false);
+    }
   };
+
+  const [recommendedDoctors, setRecommendedDoctors] = useState([]);
 
   const openDoctorDetails = (doctor) => {
     setSelectedDoctorDetails(doctor);
     setDoctorDetailsModal(true);
   };
-  
-  // Use mock data with role-based filtering
-  const recommendedDoctors = mockData.doctors || [];
-  
-  // Format filtered appointments to match the design visually
-  const filteredAppointments = getFilteredAppointments(userRole, currentUser);
-  const upcomingAppointmentsList = filteredAppointments.map((apt, index) => {
-    const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    return {
-      id: apt.id,
-      date: (14 + index).toString(),
-      day: days[(4 + index) % 7],
-      doctor: apt.doctorName,
-      time: apt.time,
-      specialty: apt.specialty,
-      status: apt.status
-    };
-  }).slice(0, 4);
 
-  // Nearby doctors from mockData (first 3 doctors)
-  const nearbyDoctors = mockData.doctors.slice(0, 3).map(doctor => ({
+  // Load recommended doctors from API
+  useEffect(() => {
+    const loadRecommendedDoctors = async () => {
+      try {
+        const response = await doctorsAPI.getAllDoctors({ limit: 6 });
+        setRecommendedDoctors(response.data || []);
+      } catch (err) {
+        console.error('Failed to load recommended doctors:', err);
+        setRecommendedDoctors([]);
+      }
+    };
+
+    if (!currentUser) {
+      loadRecommendedDoctors();
+    }
+  }, [currentUser]);
+  
+  // Format upcoming appointments from live API data
+  const upcomingAppointmentsList = (userAppointments || [])
+    .filter((apt) => {
+      const appointmentDate = apt.appointmentDate || apt.appointment_date || apt.date;
+      if (!appointmentDate) return false;
+      const parsed = new Date(appointmentDate);
+      if (Number.isNaN(parsed.getTime())) return false;
+      return parsed >= new Date() && apt.status !== 'cancelled' && apt.status !== 'completed';
+    })
+    .sort((a, b) => {
+      const aDate = new Date(a.appointmentDate || a.appointment_date || a.date);
+      const bDate = new Date(b.appointmentDate || b.appointment_date || b.date);
+      return aDate - bDate;
+    })
+    .slice(0, 4)
+    .map(mapAppointmentForCard);
+
+  // Nearby doctors from API (first 3 doctors)
+  const nearbyDoctors = recommendedDoctors.slice(0, 3).map(doctor => ({
     ...doctor,
     distance: "0.5 km",
-    address: doctor.hospital
+    address: doctor.hospital || doctor.qualifications
   }));
 
   if (loading) {
@@ -316,8 +417,8 @@ export default function DashboardHome() {
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {nearbyDoctors.map(doctor => {
-                const bgColor = getSpecialtyBgColor(doctor.specialty);
-                const IconComponent = getIconComponent(doctor.specialty);
+                const bgColor = getSpecialtyBgColor(doctor.specialization);
+                const IconComponent = getIconComponent(doctor.specialization);
                 return (
                   <div 
                     key={doctor.id} 
@@ -329,11 +430,11 @@ export default function DashboardHome() {
                         <IconComponent className="w-7 h-7 text-gray-700" />
                       </div>
                       <div>
-                        <h4 className="font-bold text-gray-800 text-sm group-hover:text-teal-600 transition">{doctor.name}</h4>
-                        <p className="text-xs text-gray-500">{doctor.specialty}</p>
+                        <h4 className="font-bold text-gray-800 text-sm group-hover:text-teal-600 transition">{`${doctor.firstName || ''} ${doctor.lastName || ''}`.trim()}</h4>
+                        <p className="text-xs text-gray-500">{doctor.specialization || 'General'}</p>
                         <div className="flex items-center mt-1">
                           <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                          <span className="text-xs text-gray-600 ml-1">{doctor.rating}</span>
+                          <span className="text-xs text-gray-600 ml-1">{doctor.rating || 'N/A'}</span>
                         </div>
                       </div>
                     </div>
@@ -364,8 +465,8 @@ export default function DashboardHome() {
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {recommendedDoctors.slice(0, 6).map((doctor) => {
-                const bgColor = getSpecialtyBgColor(doctor.specialty);
-                const IconComponent = getIconComponent(doctor.specialty);
+                const bgColor = getSpecialtyBgColor(doctor.specialization);
+                const IconComponent = getIconComponent(doctor.specialization);
                 return (
                   <div 
                     key={doctor.id} 
@@ -377,18 +478,18 @@ export default function DashboardHome() {
                       </div>
                       <div className="flex-1">
                         <h4 className="font-bold text-gray-800 group-hover:text-teal-600 transition cursor-pointer" onClick={() => openDoctorDetails(doctor)}>
-                          {doctor.name}
+                          {`${doctor.firstName || ''} ${doctor.lastName || ''}`.trim()}
                         </h4>
-                        <p className="text-xs text-gray-400 mt-0.5">{doctor.experience}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{doctor.yearsOfExperience || 0} years</p>
                         <div className="flex items-center mt-1">
                           <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                          <span className="text-xs text-gray-600 ml-1">{doctor.rating}</span>
+                          <span className="text-xs text-gray-600 ml-1">{doctor.rating || 'N/A'}</span>
                         </div>
                       </div>
                     </div>
                     
                     <span className="inline-block px-2.5 py-1 bg-teal-50 text-teal-600 text-[10px] font-medium rounded-md mb-3 w-fit">
-                      {doctor.specialty}
+                      {doctor.specialization || 'General'}
                     </span>
                     
                     <div className="flex justify-between items-center text-xs text-gray-600 border-t border-gray-100 pt-4 pb-4">
@@ -402,7 +503,7 @@ export default function DashboardHome() {
                       <div className="flex items-center space-x-1.5">
                         <CreditCard className="w-4 h-4 text-gray-400" />
                         <div>
-                          <div className="font-medium text-gray-700">{doctor.fee.replace(' RWF', '').replace(/,/g, '')}</div>
+                          <div className="font-medium text-gray-700">{doctor.consultationFee || 'Contact'}</div>
                           <div className="text-[10px] text-gray-400">RWF</div>
                         </div>
                       </div>
@@ -516,7 +617,7 @@ export default function DashboardHome() {
           setSelectedTime('');
           setConsultationType('video');
         }}
-        title={bookingSuccess ? 'Booking Confirmed! ✓' : `Book with ${selectedDoctorForBooking?.name}`}
+  title={bookingSuccess ? 'Booking Confirmed! ✓' : `Book with ${getDoctorDisplayName(selectedDoctorForBooking)}`}
         type={bookingSuccess ? 'success' : 'booking'}
         size="lg"
         closeButton={!bookingSuccess}
@@ -527,12 +628,12 @@ export default function DashboardHome() {
               <CheckCircle className="w-8 h-8 text-green-600" />
             </div>
             <p className="text-gray-800 font-bold mb-2">Appointment Confirmed!</p>
-            <p className="text-gray-600 mb-4">Your appointment with {selectedDoctorForBooking?.name} has been booked.</p>
+            <p className="text-gray-600 mb-4">Your appointment with {getDoctorDisplayName(selectedDoctorForBooking)} has been booked.</p>
             <div className="bg-blue-50 p-4 rounded-lg mb-4 text-sm text-gray-700">
               <p><strong>Date:</strong> {selectedDate}</p>
               <p><strong>Time:</strong> {selectedTime}</p>
               <p><strong>Type:</strong> {consultationType === 'video' ? 'Video Call' : consultationType === 'phone' ? 'Phone Call' : 'Text Message'}</p>
-              <p><strong>Fee:</strong> {selectedDoctorForBooking?.fee}</p>
+              <p><strong>Fee:</strong> {selectedDoctorForBooking?.consultationFee || selectedDoctorForBooking?.fee || 'RWF 0'}</p>
             </div>
             <p className="text-xs text-gray-500">You will receive a confirmation SMS and email shortly.</p>
           </div>
@@ -623,7 +724,7 @@ export default function DashboardHome() {
                       {selectedDoctorForBooking?.icon || "🩺"}
                     </div>
                     <div>
-                      <p className="font-bold text-gray-900">{selectedDoctorForBooking?.name}</p>
+                      <p className="font-bold text-gray-900">{getDoctorDisplayName(selectedDoctorForBooking)}</p>
                       <p className="text-sm text-gray-600">{selectedDoctorForBooking?.specialty}</p>
                     </div>
                   </div>
@@ -637,7 +738,7 @@ export default function DashboardHome() {
                   </div>
                   <div className="border-t pt-4">
                     <p className="text-sm text-gray-600">Consultation Fee</p>
-                    <p className="font-bold text-lg text-teal-600">{selectedDoctorForBooking?.fee}</p>
+                    <p className="font-bold text-lg text-teal-600">{selectedDoctorForBooking?.consultationFee || selectedDoctorForBooking?.fee || 'RWF 0'}</p>
                   </div>
                 </div>
               </div>
@@ -659,24 +760,11 @@ export default function DashboardHome() {
                     {['MTN Mobile Money', 'Airtel Money', 'Bank Transfer', 'Clinic Payment'].map(method => (
                       <button
                         key={method}
-                        onClick={() => {
-                          setBookingSuccess(true);
-                          setBookedDoctors(prev => ({
-                            ...prev,
-                            [selectedDoctorForBooking?.id]: true
-                          }));
-                          setTimeout(() => {
-                            setBookingModal(false);
-                            setBookingSuccess(false);
-                            setBookingStep(1);
-                            setSelectedDate('');
-                            setSelectedTime('');
-                            setConsultationType('video');
-                          }, 2500);
-                        }}
+                        onClick={() => handleConfirmBooking(method)}
+                        disabled={bookingSubmitting}
                         className="w-full p-3 border rounded-lg text-left font-medium text-gray-800 hover:bg-teal-50 hover:border-teal-500 transition"
                       >
-                        {method}
+                        {bookingSubmitting ? 'Processing...' : method}
                       </button>
                     ))}
                   </div>
@@ -700,6 +788,7 @@ export default function DashboardHome() {
                   }
                 }}
                 disabled={
+                  bookingSubmitting ||
                   (bookingStep === 1 && (!selectedDate || !selectedTime)) ||
                   (bookingStep === 2 && !consultationType) ||
                   bookingStep === 4
@@ -717,7 +806,7 @@ export default function DashboardHome() {
       <Modal
         isOpen={doctorDetailsModal}
         onClose={() => setDoctorDetailsModal(false)}
-        title={selectedDoctorDetails?.name}
+        title={selectedDoctorDetails ? `${selectedDoctorDetails.firstName || ''} ${selectedDoctorDetails.lastName || ''}`.trim() : ''}
         size="lg"
         actions={[
           {
@@ -740,16 +829,16 @@ export default function DashboardHome() {
             <div className="flex items-start space-x-4 pb-4 border-b">
               <div className="w-20 h-20 rounded-full bg-gradient-to-br from-teal-100 to-blue-100 flex items-center justify-center text-4xl flex-shrink-0">
                 {(() => {
-                  const IconComponent = getIconComponent(selectedDoctorDetails.specialty);
+                  const IconComponent = getIconComponent(selectedDoctorDetails.specialization);
                   return <IconComponent className="w-10 h-10 text-teal-600" />;
                 })()}
               </div>
               <div className="flex-1">
-                <h3 className="text-lg font-bold text-gray-900">{selectedDoctorDetails.name}</h3>
-                <p className="text-teal-600 font-medium">{selectedDoctorDetails.specialty}</p>
+                <h3 className="text-lg font-bold text-gray-900">{`${selectedDoctorDetails.firstName || ''} ${selectedDoctorDetails.lastName || ''}`.trim()}</h3>
+                <p className="text-teal-600 font-medium">{selectedDoctorDetails.specialization || 'General'}</p>
                 <div className="flex items-center mt-2">
                   <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                  <span className="ml-1 text-sm text-gray-600">{selectedDoctorDetails.rating} • {selectedDoctorDetails.hospital}</span>
+                  <span className="ml-1 text-sm text-gray-600">{selectedDoctorDetails.rating || 'N/A'} • {selectedDoctorDetails.qualifications || 'Qualified'}</span>
                 </div>
               </div>
             </div>
@@ -757,38 +846,42 @@ export default function DashboardHome() {
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-blue-50 p-4 rounded-lg">
                 <p className="text-xs text-gray-600 font-medium">Experience</p>
-                <p className="font-bold text-gray-900 mt-1">{selectedDoctorDetails.experience}</p>
+                <p className="font-bold text-gray-900 mt-1">{selectedDoctorDetails.yearsOfExperience || 0} years</p>
               </div>
               <div className="bg-green-50 p-4 rounded-lg">
                 <p className="text-xs text-gray-600 font-medium">Consultation Fee</p>
-                <p className="font-bold text-gray-900 mt-1">{selectedDoctorDetails.fee}</p>
+                <p className="font-bold text-gray-900 mt-1">RWF {selectedDoctorDetails.consultationFee || 'Contact'}</p>
               </div>
             </div>
 
             <div>
               <h4 className="font-bold text-gray-900 mb-3">Key Information</h4>
               <div className="space-y-2 text-sm">
-                <div><span className="text-gray-600">Hospital:</span> <span className="font-medium text-gray-900">{selectedDoctorDetails.hospital}</span></div>
-                <div><span className="text-gray-600">Hours:</span> <span className="font-medium text-gray-900">{selectedDoctorDetails.hours}</span></div>
-                <div><span className="text-gray-600">City:</span> <span className="font-medium text-gray-900">{selectedDoctorDetails.city || 'Kigali'}</span></div>
+                <div><span className="text-gray-600">Qualifications:</span> <span className="font-medium text-gray-900">{selectedDoctorDetails.qualifications || 'Qualified Professional'}</span></div>
+                <div><span className="text-gray-600">Consultation Duration:</span> <span className="font-medium text-gray-900">{selectedDoctorDetails.consultationDuration || 30} minutes</span></div>
+                <div><span className="text-gray-600">Email:</span> <span className="font-medium text-gray-900">{selectedDoctorDetails.email || 'Contact clinic'}</span></div>
               </div>
             </div>
 
             <div>
-              <h4 className="font-bold text-gray-900 mb-3">Languages Spoken</h4>
+              <h4 className="font-bold text-gray-900 mb-3">Consultation Methods</h4>
               <div className="flex flex-wrap gap-2">
-                {selectedDoctorDetails.languages?.map(lang => (
-                  <span key={lang} className="px-3 py-1 bg-teal-50 text-teal-600 text-sm rounded-full font-medium">
-                    {lang}
+                {selectedDoctorDetails.consultationEnabled ? (
+                  <span className="px-3 py-1 bg-teal-50 text-teal-600 text-sm rounded-full font-medium">
+                    Available for Consultation
                   </span>
-                ))}
+                ) : (
+                  <span className="px-3 py-1 bg-gray-50 text-gray-600 text-sm rounded-full font-medium">
+                    Currently Unavailable
+                  </span>
+                )}
               </div>
             </div>
 
             <div className="bg-gray-50 p-4 rounded-lg">
               <h4 className="font-bold text-gray-900 mb-2">About this Doctor</h4>
               <p className="text-sm text-gray-600">
-                Dr. {selectedDoctorDetails.name.split(' ').pop()} is a highly qualified {selectedDoctorDetails.specialty.toLowerCase()} with {selectedDoctorDetails.experience} of professional experience. 
+                Dr. {(selectedDoctorDetails.lastName || 'Smith')} is a highly qualified {selectedDoctorDetails.specialization || 'professional'} with {selectedDoctorDetails.yearsOfExperience || 'extensive'} years of professional experience. 
                 Available for consultations via video call, phone, or in-person appointments.
               </p>
             </div>

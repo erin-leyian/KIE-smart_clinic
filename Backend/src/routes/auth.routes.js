@@ -1,20 +1,27 @@
 const express = require('express');
 const router = express.Router();
-const { register, login } = require('../controllers/auth.controller');
+const {
+  register,
+  login,
+  getCurrentUser,
+  getAllUsers,
+  getUserById,
+  updateUser,
+  deleteUser,
+} = require('../controllers/auth.controller');
 const { authenticate, requireRole } = require('../middleware/auth.middleware');
 
+// Public endpoints
 router.post('/register', register);
-router.post('/login',    login);
+router.post('/login', login);
 
-router.get('/me',
-  authenticate,
-  (req, res) => res.json({ message: `Logged in as ${req.user.username}`, user: req.user })
-);
+// Protected endpoints
+router.get('/me', authenticate, getCurrentUser);
 
-router.get('/admin-only',
-  authenticate,
-  requireRole('admin'),
-  (req, res) => res.json({ message: 'You are an admin' })
-);
+// User management endpoints (admin required for some)
+router.get('/users', authenticate, requireRole('admin'), getAllUsers);
+router.get('/users/:id', authenticate, getUserById);
+router.put('/users/:id', authenticate, updateUser);
+router.delete('/users/:id', authenticate, deleteUser);
 
 module.exports = router;

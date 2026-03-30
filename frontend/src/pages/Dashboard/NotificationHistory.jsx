@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Bell, Trash2, Archive, Check, CheckCheck, X, Search, Filter, ChevronDown } from 'lucide-react';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import { getNotifications } from '../../utils/notificationManager';
+import { notificationsAPI } from '../../services/api';
 
 export default function NotificationHistory() {
   const [notifications, setNotifications] = useState([]);
@@ -14,17 +15,50 @@ export default function NotificationHistory() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [sortBy, setSortBy] = useState('newest'); // newest, oldest
 
-  const notificationTypes = ['confirmed', 'cancelled', 'rescheduled', 'reminder', 'updated'];
+  const notificationTypes = ['appointment', 'record', 'system', 'confirmed', 'cancelled', 'rescheduled', 'reminder', 'updated'];
+
+  const normalizeNotification = (notif = {}) => ({
+    ...notif,
+    read: typeof notif.read === 'boolean' ? notif.read : Boolean(notif.isRead),
+    timestamp: notif.timestamp || notif.createdAt || new Date().toISOString(),
+    type: String(notif.type || '').toLowerCase(),
+  });
+
+  const mergeNotifications = (apiList = [], localList = []) => {
+    const mergedMap = new Map();
+
+    [...apiList, ...localList].forEach((item) => {
+      const normalized = normalizeNotification(item);
+      const fallbackKey = `${normalized.title || ''}|${normalized.message || ''}|${normalized.timestamp || ''}`;
+      const key = String(normalized.id || fallbackKey);
+
+      if (!mergedMap.has(key)) {
+        mergedMap.set(key, normalized);
+        return;
+      }
+
+      const existing = mergedMap.get(key);
+      mergedMap.set(key, {
+        ...existing,
+        ...normalized,
+        read: Boolean(existing.read && normalized.read),
+      });
+    });
+
+    return Array.from(mergedMap.values());
+  };
 
   useEffect(() => {
     loadNotifications();
     // Listen for notification updates
     const handleNotificationAdded = () => loadNotifications();
     window.addEventListener('notificationAdded', handleNotificationAdded);
+    window.addEventListener('notificationUpdated', handleNotificationAdded);
     window.addEventListener('notificationsCleared', loadNotifications);
 
     return () => {
       window.removeEventListener('notificationAdded', handleNotificationAdded);
+      window.removeEventListener('notificationUpdated', handleNotificationAdded);
       window.removeEventListener('notificationsCleared', loadNotifications);
     };
   }, []);
@@ -33,11 +67,21 @@ export default function NotificationHistory() {
     filterAndSortNotifications();
   }, [notifications, searchQuery, filterStatus, filterType, sortBy]);
 
-  const loadNotifications = () => {
+  const loadNotifications = async () => {
     setLoading(true);
-    const allNotifications = getNotifications();
-    setNotifications(allNotifications);
-    setLoading(false);
+    const localNotifications = getNotifications().map(normalizeNotification);
+
+    try {
+      const response = await notificationsAPI.getAllNotifications();
+      const apiNotifications = (response?.data || []).map(normalizeNotification);
+      const merged = mergeNotifications(apiNotifications, localNotifications);
+      setNotifications(merged);
+      localStorage.setItem('notifications', JSON.stringify(merged));
+    } catch {
+      setNotifications(localNotifications);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const filterAndSortNotifications = () => {
@@ -93,12 +137,19 @@ export default function NotificationHistory() {
     }
   };
 
-  const markAsRead = (id) => {
+  const markAsRead = async (id) => {
+    try {
+      await notificationsAPI.markAsRead(id);
+    } catch {
+      // Keep local fallback behavior
+    }
+
     const updated = notifications.map(n =>
       n.id === id ? { ...n, read: true } : n
     );
     setNotifications(updated);
     localStorage.setItem('notifications', JSON.stringify(updated));
+    loadNotifications();
   };
 
   const markAsUnread = (id) => {
@@ -109,13 +160,20 @@ export default function NotificationHistory() {
     localStorage.setItem('notifications', JSON.stringify(updated));
   };
 
-  const markMultipleAsRead = (ids) => {
+  const markMultipleAsRead = async (ids) => {
+    try {
+      await Promise.all(ids.map((id) => notificationsAPI.markAsRead(id)));
+    } catch {
+      // Keep local fallback behavior
+    }
+
     const updated = notifications.map(n =>
       ids.includes(n.id) ? { ...n, read: true } : n
     );
     setNotifications(updated);
     localStorage.setItem('notifications', JSON.stringify(updated));
     setSelectedNotifications(new Set());
+    loadNotifications();
   };
 
   const markMultipleAsUnread = (ids) => {
@@ -143,6 +201,12 @@ export default function NotificationHistory() {
 
   const getNotificationTypeLabel = (type) => {
     switch (type) {
+      case 'appointment':
+        return 'Appointment';
+      case 'record':
+        return 'Record';
+      case 'system':
+        return 'System';
       case 'confirmed':
         return 'Confirmed';
       case 'cancelled':
@@ -160,6 +224,12 @@ export default function NotificationHistory() {
 
   const getNotificationIcon = (type) => {
     switch (type) {
+      case 'appointment':
+        return '📅';
+      case 'record':
+        return '🩺';
+      case 'system':
+        return '⚙️';
       case 'confirmed':
         return '✓';
       case 'cancelled':
@@ -177,6 +247,12 @@ export default function NotificationHistory() {
 
   const getTypeColor = (type) => {
     switch (type) {
+      case 'appointment':
+        return 'bg-blue-50 border-blue-200';
+      case 'record':
+        return 'bg-teal-50 border-teal-200';
+      case 'system':
+        return 'bg-gray-50 border-gray-200';
       case 'confirmed':
         return 'bg-green-50 border-green-200';
       case 'cancelled':

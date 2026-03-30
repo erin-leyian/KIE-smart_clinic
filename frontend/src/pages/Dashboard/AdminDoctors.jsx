@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import Modal from '../../components/Modal';
-import mockData from '../../data/mockData.json';
+import { doctorsAPI } from '../../services/api';
 import { Edit, Trash2, Plus, Search, Star, AlertCircle, Check } from 'lucide-react';
 
 export default function AdminDoctors() {
@@ -66,8 +66,26 @@ export default function AdminDoctors() {
     }
 
     setUser(userData);
-    setDoctors(mockData.doctors || []);
-    setLoading(false);
+    
+    // Fetch doctors from real API
+    const fetchDoctors = async () => {
+      try {
+        setLoading(true);
+        const response = await doctorsAPI.getAllDoctors({
+          specialization: filterSpecialty !== 'all' ? filterSpecialty : undefined,
+          search: searchTerm,
+          limit: 100
+        });
+        setDoctors(response.data || []);
+      } catch (err) {
+        console.error('Failed to fetch doctors:', err);
+        setSuccessMsg('Failed to load doctors');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchDoctors();
   }, [navigate]);
 
   const filteredDoctors = doctors.filter(d => {
@@ -110,39 +128,65 @@ export default function AdminDoctors() {
     setShowModal(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.name || !formData.specialty) {
       alert('Name and Specialty are required');
       return;
     }
 
-    if (editingDoctor) {
-      const updatedDoctors = doctors.map(d =>
-        d.id === editingDoctor.id
-          ? { ...d, ...formData }
-          : d
-      );
-      setDoctors(updatedDoctors);
-      setSuccessMsg(`Doctor "${formData.name}" updated successfully!`);
-    } else {
-      const newDoctor = {
-        id: Math.max(...doctors.map(d => d.id), 0) + 1,
-        ...formData,
-      };
-      setDoctors([...doctors, newDoctor]);
-      setSuccessMsg(`Doctor "${formData.name}" added successfully!`);
-    }
+    try {
+      const [firstName, ...lastNameParts] = formData.name.split(' ');
+      const lastName = lastNameParts.join(' ') || firstName;
 
-    setShowModal(false);
-    setTimeout(() => setSuccessMsg(''), 3000);
+      const doctorData = {
+        firstName: firstName,
+        lastName: lastName,
+        specialization: formData.specialty,
+        yearsOfExperience: parseInt(formData.experience) || 0,
+        consultationFee: parseFloat(formData.fee) || 0,
+        consultationDuration: 30,
+        consultationEnabled: true,
+        qualifications: formData.hospital || '',
+        availableHours: []
+      };
+
+      if (editingDoctor) {
+        await doctorsAPI.updateDoctor(editingDoctor.id, doctorData);
+        const updatedDoctors = doctors.map(d =>
+          d.id === editingDoctor.id
+            ? { ...d, ...formData }
+            : d
+        );
+        setDoctors(updatedDoctors);
+        setSuccessMsg(`Doctor "${formData.name}" updated successfully!`);
+      } else {
+        const response = await doctorsAPI.createDoctor({
+          ...doctorData,
+          email: `doctor${Date.now()}@clinic.rw`,
+          password: 'TempPassword123!'
+        });
+        setDoctors([...doctors, response.doctor]);
+        setSuccessMsg(`Doctor "${formData.name}" added successfully!`);
+      }
+
+      setShowModal(false);
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } catch (err) {
+      alert('Error saving doctor: ' + (err.message || 'Unknown error'));
+    }
   };
 
-  const handleDelete = (d) => {
-    const updatedDoctors = doctors.filter(doctor => doctor.id !== d.id);
-    setDoctors(updatedDoctors);
-    setDeleteConfirm(null);
-    setSuccessMsg(`Doctor "${d.name}" deleted successfully!`);
-    setTimeout(() => setSuccessMsg(''), 3000);
+  const handleDelete = async (d) => {
+    try {
+      await doctorsAPI.deleteDoctor(d.id);
+      const updatedDoctors = doctors.filter(doctor => doctor.id !== d.id);
+      setDoctors(updatedDoctors);
+      setDeleteConfirm(null);
+      setSuccessMsg(`Doctor "${d.firstName} ${d.lastName}" deleted successfully!`);
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } catch (err) {
+      alert('Error deleting doctor: ' + (err.message || 'Unknown error'));
+    }
   };
 
   if (loading) {
@@ -323,9 +367,10 @@ export default function AdminDoctors() {
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                 >
                   <option value="">Select Hospital</option>
-                  {mockData.hospitals?.map(h => (
-                    <option key={h.id} value={h.name}>{h.name}</option>
-                  ))}
+                  <option value="Kigali Central Hospital">Kigali Central Hospital</option>
+                  <option value="King Faisal Hospital">King Faisal Hospital</option>
+                  <option value="Avi Clinic">Avi Clinic</option>
+                  <option value="Kigali Health Center">Kigali Health Center</option>
                 </select>
               </div>
 

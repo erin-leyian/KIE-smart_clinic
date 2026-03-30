@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
-import mockData from '../../data/mockData.json';
+import { systemSettingsAPI } from '../../services/api';
 import { Settings, Edit, Trash2, Plus, Check, AlertCircle, X } from 'lucide-react';
 
 // Simple Modal Component for this page
@@ -68,30 +68,26 @@ export default function SystemSettings() {
 
     setUser(userData);
     initializeData();
-    setLoading(false);
   }, [navigate]);
 
-  const initializeData = () => {
-    // Load from localStorage or use mockData
-    const storedHospitals = localStorage.getItem('system_hospitals');
-    const storedInsurance = localStorage.getItem('system_insurance');
-    const storedConditions = localStorage.getItem('system_conditions');
+  const initializeData = async () => {
+    try {
+      // Load from API
+      const [hospitalsRes, insuranceRes, conditionsRes] = await Promise.all([
+        systemSettingsAPI.getHospitals().catch(() => ({ hospitals: [] })),
+        systemSettingsAPI.getInsuranceProviders().catch(() => ({ insurance: [] })),
+        systemSettingsAPI.getMedicalConditions().catch(() => ({ conditions: [] }))
+      ]);
 
-    const hospitalsData = storedHospitals 
-      ? JSON.parse(storedHospitals) 
-      : (mockData.hospitals ? JSON.parse(JSON.stringify(mockData.hospitals)) : []);
-    
-    const insuranceData = storedInsurance 
-      ? JSON.parse(storedInsurance) 
-      : (mockData.insurance ? JSON.parse(JSON.stringify(mockData.insurance)) : []);
-    
-    const conditionsData = storedConditions 
-      ? JSON.parse(storedConditions) 
-      : (mockData.medicalConditions ? JSON.parse(JSON.stringify(mockData.medicalConditions)) : []);
-
-    setHospitals(hospitalsData);
-    setInsuranceProviders(insuranceData);
-    setMedicalConditions(conditionsData);
+      setHospitals(hospitalsRes.hospitals || hospitalsRes.data || []);
+      setInsuranceProviders(insuranceRes.insurance || insuranceRes.data || []);
+      setMedicalConditions(conditionsRes.conditions || conditionsRes.data || []);
+    } catch (error) {
+      console.error('Error loading system settings:', error);
+      setErrorMsg('Failed to load system settings');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Persist data to localStorage
@@ -137,7 +133,7 @@ export default function SystemSettings() {
     setShowModal(true);
   };
 
-  const handleSaveHospital = () => {
+  const handleSaveHospital = async () => {
     if (!formData.name?.trim()) {
       showError('Hospital name is required');
       return;
@@ -147,33 +143,63 @@ export default function SystemSettings() {
       return;
     }
 
-    let updatedHospitals;
-    if (modalMode === 'edit' && editingId !== null) {
-      updatedHospitals = hospitals.map(h =>
-        h.id === editingId ? { ...h, ...formData } : h
-      );
-      showSuccess('Hospital updated successfully!');
-    } else {
-      const newHospital = {
-        id: hospitals.length > 0 ? Math.max(...hospitals.map(h => h.id), 0) + 1 : 1,
-        image: formData.image || 'https://images.unsplash.com/photo-1576091160550-112173f7f869?w=300&h=200&fit=crop',
-        ...formData,
-      };
-      updatedHospitals = [...hospitals, newHospital];
-      showSuccess('Hospital added successfully!');
+    try {
+      if (modalMode === 'edit' && editingId !== null) {
+        // Call API to update hospital
+        await systemSettingsAPI.updateHospital(editingId, {
+          name: formData.name,
+          location: formData.location,
+          phone: formData.phone,
+          type: formData.type,
+          rating: formData.rating,
+          reviews: formData.reviews
+        });
+
+        const updatedHospitals = hospitals.map(h =>
+          h.id === editingId ? { ...h, ...formData } : h
+        );
+        setHospitals(updatedHospitals);
+        showSuccess('Hospital updated successfully!');
+      } else {
+        // Call API to create hospital
+        const response = await systemSettingsAPI.createHospital({
+          name: formData.name,
+          location: formData.location,
+          phone: formData.phone || '',
+          type: formData.type || '',
+          rating: formData.rating || 4.5,
+          reviews: formData.reviews || 0
+        });
+
+        const newHospital = {
+          id: response.data?.id || (hospitals.length > 0 ? Math.max(...hospitals.map(h => h.id), 0) + 1 : 1),
+          image: formData.image || 'https://images.unsplash.com/photo-1576091160550-112173f7f869?w=300&h=200&fit=crop',
+          ...formData,
+        };
+        setHospitals([...hospitals, newHospital]);
+        showSuccess('Hospital added successfully!');
+      }
+      
+      setShowModal(false);
+    } catch (err) {
+      console.error('Error saving hospital:', err);
+      showError('Failed to save hospital. Please try again.');
     }
-    
-    setHospitals(updatedHospitals);
-    saveToLocalStorage('system_hospitals', updatedHospitals);
-    setShowModal(false);
   };
 
-  const handleDeleteHospital = (h) => {
-    const updatedHospitals = hospitals.filter(hospital => hospital.id !== h.id);
-    setHospitals(updatedHospitals);
-    saveToLocalStorage('system_hospitals', updatedHospitals);
-    setDeleteConfirm(null);
-    showSuccess('Hospital deleted successfully!');
+  const handleDeleteHospital = async (h) => {
+    try {
+      // Call API to delete hospital
+      await systemSettingsAPI.deleteHospital(h.id);
+      
+      const updatedHospitals = hospitals.filter(hospital => hospital.id !== h.id);
+      setHospitals(updatedHospitals);
+      setDeleteConfirm(null);
+      showSuccess('Hospital deleted successfully!');
+    } catch (err) {
+      console.error('Error deleting hospital:', err);
+      showError('Failed to delete hospital. Please try again.');
+    }
   };
 
   // =============== INSURANCE HANDLERS ===============
@@ -199,39 +225,69 @@ export default function SystemSettings() {
     setShowModal(true);
   };
 
-  const handleSaveInsurance = () => {
+  const handleSaveInsurance = async () => {
     if (!formData.name?.trim()) {
       showError('Insurance name is required');
       return;
     }
 
-    let updatedInsurance;
-    if (modalMode === 'edit' && editingId !== null) {
-      updatedInsurance = insuranceProviders.map(i =>
-        i.id === editingId ? { ...i, ...formData } : i
-      );
-      showSuccess('Insurance provider updated successfully!');
-    } else {
-      const newInsurance = {
-        id: insuranceProviders.length > 0 ? Math.max(...insuranceProviders.map(i => i.id), 0) + 1 : 1,
-        benefits: formData.benefits || [],
-        ...formData,
-      };
-      updatedInsurance = [...insuranceProviders, newInsurance];
-      showSuccess('Insurance provider added successfully!');
-    }
+    try {
+      if (modalMode === 'edit' && editingId !== null) {
+        // Call API to update insurance provider
+        await systemSettingsAPI.updateInsuranceProvider(editingId, {
+          name: formData.name,
+          fullName: formData.fullName,
+          type: formData.type,
+          coverage: formData.coverage,
+          conditions: formData.conditions,
+          benefits: formData.benefits || []
+        });
 
-    setInsuranceProviders(updatedInsurance);
-    saveToLocalStorage('system_insurance', updatedInsurance);
-    setShowModal(false);
+        const updatedInsurance = insuranceProviders.map(i =>
+          i.id === editingId ? { ...i, ...formData } : i
+        );
+        setInsuranceProviders(updatedInsurance);
+        showSuccess('Insurance provider updated successfully!');
+      } else {
+        // Call API to create insurance provider
+        const response = await systemSettingsAPI.createInsuranceProvider({
+          name: formData.name,
+          fullName: formData.fullName || '',
+          type: formData.type || '',
+          coverage: formData.coverage || '',
+          conditions: formData.conditions || '',
+          benefits: formData.benefits || []
+        });
+
+        const newInsurance = {
+          id: response.data?.id || (insuranceProviders.length > 0 ? Math.max(...insuranceProviders.map(i => i.id), 0) + 1 : 1),
+          benefits: formData.benefits || [],
+          ...formData,
+        };
+        setInsuranceProviders([...insuranceProviders, newInsurance]);
+        showSuccess('Insurance provider added successfully!');
+      }
+
+      setShowModal(false);
+    } catch (err) {
+      console.error('Error saving insurance provider:', err);
+      showError('Failed to save insurance provider. Please try again.');
+    }
   };
 
-  const handleDeleteInsurance = (i) => {
-    const updatedInsurance = insuranceProviders.filter(insurance => insurance.id !== i.id);
-    setInsuranceProviders(updatedInsurance);
-    saveToLocalStorage('system_insurance', updatedInsurance);
-    setDeleteConfirm(null);
-    showSuccess('Insurance provider deleted successfully!');
+  const handleDeleteInsurance = async (i) => {
+    try {
+      // Call API to delete insurance provider
+      await systemSettingsAPI.deleteInsuranceProvider(i.id);
+      
+      const updatedInsurance = insuranceProviders.filter(insurance => insurance.id !== i.id);
+      setInsuranceProviders(updatedInsurance);
+      setDeleteConfirm(null);
+      showSuccess('Insurance provider deleted successfully!');
+    } catch (err) {
+      console.error('Error deleting insurance provider:', err);
+      showError('Failed to delete insurance provider. Please try again.');
+    }
   };
 
   // =============== MEDICAL CONDITIONS HANDLERS ===============
@@ -257,39 +313,69 @@ export default function SystemSettings() {
     setShowModal(true);
   };
 
-  const handleSaveCondition = () => {
+  const handleSaveCondition = async () => {
     if (!formData.name?.trim()) {
       showError('Condition name is required');
       return;
     }
 
-    let updatedConditions;
-    if (modalMode === 'edit' && editingId !== null) {
-      updatedConditions = medicalConditions.map(c =>
-        c.id === editingId ? { ...c, ...formData } : c
-      );
-      showSuccess('Medical condition updated successfully!');
-    } else {
-      const newCondition = {
-        id: medicalConditions.length > 0 ? Math.max(...medicalConditions.map(c => c.id), 0) + 1 : 1,
-        specialists: formData.specialists || [],
-        ...formData,
-      };
-      updatedConditions = [...medicalConditions, newCondition];
-      showSuccess('Medical condition added successfully!');
-    }
+    try {
+      if (modalMode === 'edit' && editingId !== null) {
+        // Call API to update medical condition
+        await systemSettingsAPI.updateMedicalCondition(editingId, {
+          name: formData.name,
+          description: formData.description,
+          prevalence: formData.prevalence,
+          icon: formData.icon,
+          treatments: formData.treatments || [],
+          specialists: formData.specialists || []
+        });
 
-    setMedicalConditions(updatedConditions);
-    saveToLocalStorage('system_conditions', updatedConditions);
-    setShowModal(false);
+        const updatedConditions = medicalConditions.map(c =>
+          c.id === editingId ? { ...c, ...formData } : c
+        );
+        setMedicalConditions(updatedConditions);
+        showSuccess('Medical condition updated successfully!');
+      } else {
+        // Call API to create medical condition
+        const response = await systemSettingsAPI.createMedicalCondition({
+          name: formData.name,
+          description: formData.description || '',
+          prevalence: formData.prevalence || '',
+          icon: formData.icon || '',
+          treatments: formData.treatments || [],
+          specialists: formData.specialists || []
+        });
+
+        const newCondition = {
+          id: response.data?.id || (medicalConditions.length > 0 ? Math.max(...medicalConditions.map(c => c.id), 0) + 1 : 1),
+          specialists: formData.specialists || [],
+          ...formData,
+        };
+        setMedicalConditions([...medicalConditions, newCondition]);
+        showSuccess('Medical condition added successfully!');
+      }
+
+      setShowModal(false);
+    } catch (err) {
+      console.error('Error saving medical condition:', err);
+      showError('Failed to save medical condition. Please try again.');
+    }
   };
 
-  const handleDeleteCondition = (c) => {
-    const updatedConditions = medicalConditions.filter(condition => condition.id !== c.id);
-    setMedicalConditions(updatedConditions);
-    saveToLocalStorage('system_conditions', updatedConditions);
-    setDeleteConfirm(null);
-    showSuccess('Medical condition deleted successfully!');
+  const handleDeleteCondition = async (c) => {
+    try {
+      // Call API to delete medical condition
+      await systemSettingsAPI.deleteMedicalCondition(c.id);
+      
+      const updatedConditions = medicalConditions.filter(condition => condition.id !== c.id);
+      setMedicalConditions(updatedConditions);
+      setDeleteConfirm(null);
+      showSuccess('Medical condition deleted successfully!');
+    } catch (err) {
+      console.error('Error deleting medical condition:', err);
+      showError('Failed to delete medical condition. Please try again.');
+    }
   };
 
   if (loading) {

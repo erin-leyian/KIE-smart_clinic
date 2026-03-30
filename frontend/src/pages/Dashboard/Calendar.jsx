@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import Modal from '../../components/Modal';
 import DashboardLayout from "../../components/Layout/DashboardLayout";
-import mockData from "../../data/mockData.json";
 import { AlertCircle, RotateCcw, ChevronLeft, ChevronRight, Clock, User, List, Grid3x3 } from 'lucide-react';
+import { appointmentsAPI } from '../../services/api';
 import { formatErrorMessage } from '../../utils/errorHandler';
 import { getIconComponent, getSpecialtyBgColor } from '../../utils/medicalIcons';
 import { getCurrentUser, getUserRole, getFilteredAppointments } from '../../utils/dataAccessControl';
@@ -34,11 +34,10 @@ export default function CalendarView() {
         setCurrentUser(user);
         setUserRole(role);
         
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Fetch appointments from API
+        const response = await appointmentsAPI.getAllAppointments();
         
-        // Validate data
-        if (!mockData.appointments || !Array.isArray(mockData.appointments)) {
+        if (!response.data || !Array.isArray(response.data)) {
           throw new Error('Calendar data is unavailable. Please try again.');
         }
         
@@ -68,11 +67,10 @@ export default function CalendarView() {
       setCurrentUser(user);
       setUserRole(role);
       
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Fetch appointments from API
+      const response = await appointmentsAPI.getAllAppointments();
       
-      // Validate data
-      if (!mockData.appointments || !Array.isArray(mockData.appointments)) {
+      if (!response.data || !Array.isArray(response.data)) {
         throw new Error('Calendar data is unavailable. Please try again.');
       }
       

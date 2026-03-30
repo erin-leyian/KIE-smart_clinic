@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import { Users, Briefcase, Calendar, TrendingUp, Activity, AlertCircle, Settings } from 'lucide-react';
-import mockData from '../../data/mockData.json';
+import { authAPI, appointmentsAPI } from '../../services/api';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [stats, setStats] = useState(null);
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -27,24 +29,50 @@ export default function AdminDashboard() {
 
     setUser(userData);
 
-    // Calculate statistics
-    const totalUsers = mockData.users?.length || 0;
-    const totalDoctors = mockData.users?.filter(u => u.role === 'doctor').length || 0;
-    const totalPatients = mockData.users?.filter(u => u.role === 'patient').length || 0;
-    const totalAppointments = mockData.appointments?.length || 0;
-    const totalHospitals = mockData.hospitals?.length || 0;
+    // Fetch statistics from API
+    const fetchStats = async () => {
+      try {
+        const [usersData, appointmentsData] = await Promise.all([
+          authAPI.getAllUsers(),
+          appointmentsAPI.getAllAppointments(),
+        ]);
 
-    setStats({
-      totalUsers,
-      totalDoctors,
-      totalPatients,
-      totalAppointments,
-      totalHospitals,
-      completedAppointments: mockData.appointments?.filter(a => a.status === 'Completed').length || 0,
-      pendingAppointments: mockData.appointments?.filter(a => a.status === 'Pending').length || 0,
-    });
+        const usersArray = usersData.users || [];
+        const appointments = appointmentsData.appointments || [];
 
-    setLoading(false);
+        const totalDoctors = usersArray.filter(u => u.role === 'doctor').length;
+        const totalPatients = usersArray.filter(u => u.role === 'patient').length;
+        const completedAppointments = appointments.filter(a => a.status === 'Completed').length;
+        const pendingAppointments = appointments.filter(a => a.status === 'Pending').length;
+
+        setUsers(usersArray);
+        setStats({
+          totalUsers: usersArray.length,
+          totalDoctors,
+          totalPatients,
+          totalAppointments: appointments.length,
+          totalHospitals: 4, // Static value - can be fetched if needed
+          completedAppointments,
+          pendingAppointments,
+        });
+      } catch (err) {
+        console.error('Error fetching statistics:', err);
+        setError('Failed to load statistics');
+        setStats({
+          totalUsers: 0,
+          totalDoctors: 0,
+          totalPatients: 0,
+          totalAppointments: 0,
+          totalHospitals: 0,
+          completedAppointments: 0,
+          pendingAppointments: 0,
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
   }, [navigate]);
 
   if (loading) {
@@ -174,20 +202,20 @@ export default function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {mockData.users?.slice(0, 5).map((user, idx) => (
+                  {users?.slice(0, 5).map((u, idx) => (
                     <tr key={idx} className="border-b hover:bg-gray-50">
-                      <td className="py-3 px-4">{user.name}</td>
-                      <td className="py-3 px-4">{user.email}</td>
+                      <td className="py-3 px-4">{u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.name || 'N/A'}</td>
+                      <td className="py-3 px-4">{u.email}</td>
                       <td className="py-3 px-4">
                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          user.role === 'admin' ? 'bg-red-100 text-red-700' :
-                          user.role === 'doctor' ? 'bg-blue-100 text-blue-700' :
+                          u.role === 'admin' ? 'bg-red-100 text-red-700' :
+                          u.role === 'doctor' ? 'bg-blue-100 text-blue-700' :
                           'bg-green-100 text-green-700'
                         }`}>
-                          {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                          {u.role.charAt(0).toUpperCase() + u.role.slice(1)}
                         </span>
                       </td>
-                      <td className="py-3 px-4">{user.phone}</td>
+                      <td className="py-3 px-4">{u.phone || 'N/A'}</td>
                     </tr>
                   ))}
                 </tbody>

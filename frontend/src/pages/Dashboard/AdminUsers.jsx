@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import Modal from '../../components/Modal';
-import mockData from '../../data/mockData.json';
+import { authAPI } from '../../services/api';
 import { Edit, Trash2, Plus, Search, X, AlertCircle, Check } from 'lucide-react';
 
 export default function AdminUsers() {
@@ -41,8 +41,26 @@ export default function AdminUsers() {
     }
 
     setUser(userData);
-    setUsers(mockData.users || []);
-    setLoading(false);
+    
+    // Fetch users from real API
+    const fetchUsers = async () => {
+      try {
+        setLoading(true);
+        const response = await authAPI.getAllUsers({
+          role: filterRole !== 'all' ? filterRole : undefined,
+          search: searchTerm,
+          limit: 100
+        });
+        setUsers(response.data || []);
+      } catch (err) {
+        console.error('Failed to fetch users:', err);
+        setSuccessMsg('Failed to load users');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchUsers();
   }, [navigate]);
 
   const filteredUsers = users.filter(u => {
@@ -80,41 +98,64 @@ export default function AdminUsers() {
     setShowModal(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.name || !formData.email) {
       alert('Name and Email are required');
       return;
     }
 
-    if (editingUser) {
-      // Update existing user
-      const updatedUsers = users.map(u =>
-        u.id === editingUser.id
-          ? { ...u, ...formData }
-          : u
-      );
-      setUsers(updatedUsers);
-      setSuccessMsg(`User "${formData.name}" updated successfully!`);
-    } else {
-      // Add new user
-      const newUser = {
-        id: Math.max(...users.map(u => u.id), 0) + 1,
-        ...formData,
+    try {
+      const [firstName, ...lastNameParts] = formData.name.split(' ');
+      const lastName = lastNameParts.join(' ') || firstName;
+      
+      const userData = {
+        firstName: firstName,
+        lastName: lastName,
+        email: formData.email,
+        phone: formData.phone || '',
+        address: formData.location || ''
       };
-      setUsers([...users, newUser]);
-      setSuccessMsg(`User "${formData.name}" added successfully!`);
-    }
 
-    setShowModal(false);
-    setTimeout(() => setSuccessMsg(''), 3000);
+      if (editingUser) {
+        // Update existing user
+        await authAPI.updateUser(editingUser.id, userData);
+        const updatedUsers = users.map(u =>
+          u.id === editingUser.id
+            ? { ...u, ...formData }
+            : u
+        );
+        setUsers(updatedUsers);
+        setSuccessMsg(`User "${formData.name}" updated successfully!`);
+      } else {
+        // Add new user
+        const registerData = {
+          ...userData,
+          password: formData.password || 'TempPassword123!',
+          role: formData.role
+        };
+        const response = await authAPI.register(registerData);
+        setUsers([...users, response.user]);
+        setSuccessMsg(`User "${formData.name}" added successfully!`);
+      }
+
+      setShowModal(false);
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } catch (err) {
+      alert('Error saving user: ' + (err.message || 'Unknown error'));
+    }
   };
 
-  const handleDelete = (u) => {
-    const updatedUsers = users.filter(user => user.id !== u.id);
-    setUsers(updatedUsers);
-    setDeleteConfirm(null);
-    setSuccessMsg(`User "${u.name}" deleted successfully!`);
-    setTimeout(() => setSuccessMsg(''), 3000);
+  const handleDelete = async (u) => {
+    try {
+      await authAPI.deleteUser(u.id);
+      const updatedUsers = users.filter(user => user.id !== u.id);
+      setUsers(updatedUsers);
+      setDeleteConfirm(null);
+      setSuccessMsg(`User "${u.firstName} ${u.lastName}" deleted successfully!`);
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } catch (err) {
+      alert('Error deleting user: ' + (err.message || 'Unknown error'));
+    }
   };
 
   if (loading) {
